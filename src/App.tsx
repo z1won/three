@@ -1,7 +1,8 @@
-import { Canvas, ThreeEvent, useFrame, useThree } from '@react-three/fiber'
+import { Canvas, ThreeEvent, useThree } from '@react-three/fiber'
 import { Bounds, Environment, Grid, OrbitControls, TransformControls, useGLTF } from '@react-three/drei'
 import { Suspense, useEffect, useState } from 'react'
 import * as THREE from 'three'
+import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
 import './styles.css'
 
 type TransformMode = 'translate' | 'rotate' | 'scale'
@@ -58,8 +59,10 @@ function GLTFModel({ url, onSelect, onLoaded }: ModelProps) {
 function SceneSettings({ fov, resetCamera, ambientIntensity, keyLightIntensity, keyLightPosition, fillLightIntensity, environmentEnabled, environmentPreset, environmentIntensity }: SceneSettingsProps) {
   const { camera } = useThree()
   useEffect(() => {
-    camera.fov = fov
-    camera.updateProjectionMatrix()
+    if (camera instanceof THREE.PerspectiveCamera) {
+      camera.fov = fov
+      camera.updateProjectionMatrix()
+    }
   }, [camera, fov])
   useEffect(() => {
     camera.position.set(5, 3.5, 7)
@@ -80,6 +83,19 @@ function getMaterial(mesh: THREE.Mesh) {
   return material instanceof THREE.MeshStandardMaterial || material instanceof THREE.MeshPhysicalMaterial ? material : null
 }
 
+function downloadGlb(target: THREE.Object3D) {
+  const exporter = new GLTFExporter()
+  exporter.parse(target, (result) => {
+    const blob = result instanceof ArrayBuffer ? new Blob([result], { type: 'model/gltf-binary' }) : new Blob([JSON.stringify(result)], { type: 'model/gltf+json' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = 'three-playground.glb'
+    anchor.click()
+    URL.revokeObjectURL(url)
+  }, (error) => window.alert(`GLB export failed: ${error}`), { binary: true, onlyVisible: false })
+}
+
 export default function App() {
   const [selected, setSelected] = useState<SelectedObject | null>(null)
   const [modelUrl, setModelUrl] = useState('')
@@ -88,6 +104,8 @@ export default function App() {
   const [mode, setMode] = useState<TransformMode>('translate')
   const [space, setSpace] = useState<TransformSpace>('world')
   const [modelMeshes, setModelMeshes] = useState<THREE.Mesh[]>([])
+  const [modelScene, setModelScene] = useState<THREE.Object3D | null>(null)
+  const [exportTarget, setExportTarget] = useState<THREE.Object3D | null>(null)
   const [materialVersion, setMaterialVersion] = useState(0)
   const [fov, setFov] = useState(50)
   const [resetCamera, setResetCamera] = useState(0)
@@ -113,7 +131,7 @@ export default function App() {
   const clearResources = () => { for (const url of new Set(resourceUrls.values())) URL.revokeObjectURL(url); resourceUrls.clear() }
   useEffect(() => () => { clearResources() }, [])
 
-  const loadModel = (url: string, name = 'Remote model') => { if (!url) return; setModelUrl(url); setModelName(name); setSelected(null); setModelMeshes([]); setMaterialVersion((v) => v + 1) }
+  const loadModel = (url: string, name = 'Remote model') => { if (!url) return; setModelUrl(url); setModelName(name); setSelected(null); setModelMeshes([]); setModelScene(null); setExportTarget(null); setMaterialVersion((v) => v + 1) }
 
   const handleFiles = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? [])
@@ -126,7 +144,7 @@ export default function App() {
   }
 
   const handleUrlSubmit = (event: React.FormEvent) => { event.preventDefault(); clearResources(); loadModel(urlInput.trim()) }
-  const clearModel = () => { clearResources(); setModelUrl(''); setModelName(''); setModelMeshes([]); setSelected(null); setMaterialVersion((v) => v + 1) }
+  const clearModel = () => { clearResources(); setModelUrl(''); setModelName(''); setModelMeshes([]); setModelScene(null); setExportTarget(null); setSelected(null); setMaterialVersion((v) => v + 1) }
   const selectedMesh = selected instanceof THREE.Mesh ? selected : null
   const material = selectedMesh ? getMaterial(selectedMesh) : null
   void materialVersion
@@ -138,25 +156,37 @@ export default function App() {
     setMaterialVersion((v) => v + 1)
   }
 
+  const handleSelect = (object: THREE.Object3D) => {
+    setSelected(object)
+    if (!modelUrl) setExportTarget(object)
+  }
+
+  const handleModelLoaded = (scene: THREE.Object3D) => {
+    setModelScene(scene)
+    setExportTarget(scene)
+    setModelMeshes(getMeshNodes(scene))
+  }
+
   const materialColor = material ? `#${material.color.getHexString()}` : '#ffffff'
   const materialRoughness = material?.roughness ?? 0.5
   const materialMetalness = material?.metalness ?? 0
   const materialOpacity = material?.opacity ?? 1
+  const exportTargetObject = modelScene ?? exportTarget
 
   return <main className="app"><header className="toolbar"><div><strong>Three.js Playground</strong><span>Browser-only 3D renderer</span></div><span className="status">React Three Fiber · Three.js · GLB/GLTF</span></header><section className="viewport">
     <Canvas camera={{ position: [5, 3.5, 7], fov }} shadows onPointerMissed={() => setSelected(null)}><color attach="background" args={['#0b1020']} /><SceneSettings fov={fov} resetCamera={resetCamera} ambientIntensity={ambientIntensity} keyLightIntensity={keyLightIntensity} keyLightPosition={[keyLightX, keyLightY, keyLightZ]} fillLightIntensity={fillLightIntensity} environmentEnabled={environmentEnabled} environmentPreset={environmentPreset} environmentIntensity={environmentIntensity} />
-      {!modelUrl && <Cube selected={selected === 'cube'} mode={mode} space={space} onSelect={setSelected} />}
-      {modelUrl && <Suspense fallback={null}><Bounds fit clip observe margin={1.2}><GLTFModel url={modelUrl} onSelect={setSelected} onLoaded={(scene) => setModelMeshes(getMeshNodes(scene))} /></Bounds></Suspense>}
+      {!modelUrl && <Cube selected={selected === 'cube'} mode={mode} space={space} onSelect={handleSelect} />}
+      {modelUrl && <Suspense fallback={null}><Bounds fit clip observe margin={1.2}><GLTFModel url={modelUrl} onSelect={handleSelect} onLoaded={handleModelLoaded} /></Bounds></Suspense>}
       {selectedMesh && <TransformControls object={selectedMesh} mode={mode} space={space} />}<Grid args={[20, 20]} cellSize={1} cellThickness={0.6} sectionSize={5} sectionThickness={1.2} fadeDistance={30} fadeStrength={1} /><OrbitControls makeDefault enableDamping />
     </Canvas>
     <aside className="panel"><h2>Scene</h2>{!modelUrl && <button className={selected === 'cube' ? 'active scene-item' : 'scene-item'} onClick={() => setSelected('cube')}>Cube</button>}
       {modelUrl && <div className="hierarchy"><span className="section-label">Hierarchy</span><button className={!selected ? 'scene-item active' : 'scene-item'} onClick={() => setSelected(null)}>◈ {modelName || 'Model'}</button>{modelMeshes.length === 0 && <span className="empty-hierarchy">모델 로딩 중...</span>}{modelMeshes.map((mesh, index) => <button key={mesh.uuid} className={selected === mesh ? 'scene-item child active' : 'scene-item child'} onClick={() => setSelected(mesh)}>◇ {mesh.name || `Mesh ${index + 1}`}</button>)}</div>}
-      <div className="model-loader"><label className="file-button">GLB / GLTF + 리소스 업로드<input type="file" multiple accept=".glb,.gltf,.bin,.png,.jpg,.jpeg,.webp,.ktx2,model/gltf-binary,model/gltf+json" onChange={handleFiles} /></label><span className="upload-hint">.gltf, .bin, 텍스처를 함께 선택하세요.</span><form onSubmit={handleUrlSubmit} className="url-form"><input value={urlInput} onChange={(e) => setUrlInput(e.target.value)} placeholder="https://.../model.glb" aria-label="GLB/GLTF URL" /><button type="submit">Load</button></form>{modelUrl && <div className="loaded-model"><span title={modelName}>{modelName}</span><button type="button" onClick={clearModel}>×</button></div>}</div>
+      <div className="model-loader"><label className="file-button">GLB / GLTF + 리소스 업로드<input type="file" multiple accept=".glb,.gltf,.bin,.png,.jpg,.jpeg,.webp,.ktx2,model/gltf-binary,model/gltf+json" onChange={handleFiles} /></label><span className="upload-hint">.gltf, .bin, 텍스처를 함께 선택하세요.</span><form onSubmit={handleUrlSubmit} className="url-form"><input value={urlInput} onChange={(e) => setUrlInput(e.target.value)} placeholder="https://.../model.glb" aria-label="GLB/GLTF URL" /><button type="submit">Load</button></form>{modelUrl && <div className="loaded-model"><span title={modelName}>{modelName}</span><button type="button" onClick={clearModel}>×</button></div>}{exportTargetObject && <button className="full-button export-button" type="button" onClick={() => downloadGlb(exportTargetObject)}>Export GLB</button>}</div>
       <div className="scene-tools"><span className="section-label">Camera</span><label className="material-row"><span>FOV <output>{fov}°</output></span><input type="range" min="20" max="100" step="1" value={fov} onChange={(e) => setFov(Number(e.target.value))} /></label><button className="full-button" onClick={() => setResetCamera((v) => v + 1)}>Reset camera</button></div>
       <div className="scene-tools"><span className="section-label">Lighting</span><label className="material-row"><span>Ambient <output>{ambientIntensity.toFixed(2)}</output></span><input type="range" min="0" max="2" step="0.01" value={ambientIntensity} onChange={(e) => setAmbientIntensity(Number(e.target.value))} /></label><label className="material-row"><span>Key light <output>{keyLightIntensity.toFixed(2)}</output></span><input type="range" min="0" max="5" step="0.01" value={keyLightIntensity} onChange={(e) => setKeyLightIntensity(Number(e.target.value))} /></label><div className="light-position"><label>X<input type="range" min="-10" max="10" step="0.5" value={keyLightX} onChange={(e) => setKeyLightX(Number(e.target.value))} /></label><label>Y<input type="range" min="-10" max="15" step="0.5" value={keyLightY} onChange={(e) => setKeyLightY(Number(e.target.value))} /></label><label>Z<input type="range" min="-10" max="10" step="0.5" value={keyLightZ} onChange={(e) => setKeyLightZ(Number(e.target.value))} /></label></div><label className="material-row"><span>Fill light <output>{fillLightIntensity.toFixed(2)}</output></span><input type="range" min="0" max="2" step="0.01" value={fillLightIntensity} onChange={(e) => setFillLightIntensity(Number(e.target.value))} /></label></div>
       <div className="scene-tools"><span className="section-label">Environment</span><button className={environmentEnabled ? 'active full-button' : 'full-button'} onClick={() => setEnvironmentEnabled((v) => !v)}>{environmentEnabled ? 'HDRI on' : 'HDRI off'}</button><label className="material-row"><span>Preset</span><select className="preset-select" value={environmentPreset} onChange={(e) => setEnvironmentPreset(e.target.value as EnvironmentPreset)}><option value="studio">Studio</option><option value="city">City</option><option value="sunset">Sunset</option><option value="dawn">Dawn</option><option value="night">Night</option><option value="warehouse">Warehouse</option><option value="forest">Forest</option><option value="apartment">Apartment</option></select></label><label className="material-row"><span>Intensity <output>{environmentIntensity.toFixed(2)}</output></span><input type="range" min="0" max="2" step="0.01" value={environmentIntensity} onChange={(e) => setEnvironmentIntensity(Number(e.target.value))} /></label></div>
       {selected && <div className="transform-tools"><span className="section-label">Transform</span><div className="mode-buttons"><button className={mode === 'translate' ? 'active' : ''} onClick={() => setMode('translate')}>Move <kbd>W</kbd></button><button className={mode === 'rotate' ? 'active' : ''} onClick={() => setMode('rotate')}>Rotate <kbd>E</kbd></button><button className={mode === 'scale' ? 'active' : ''} onClick={() => setMode('scale')}>Scale <kbd>R</kbd></button></div><div className="mode-buttons"><button className={space === 'world' ? 'active' : ''} onClick={() => setSpace('world')}>World</button><button className={space === 'local' ? 'active' : ''} onClick={() => setSpace('local')}>Local</button></div></div>}
       {material && <div className="material-tools"><span className="section-label">Material</span><label className="material-row"><span>Color</span><input type="color" value={materialColor} onChange={(e) => updateMaterial((m) => m.color.set(e.target.value))} /></label><label className="material-row"><span>Roughness <output>{materialRoughness.toFixed(2)}</output></span><input type="range" min="0" max="1" step="0.01" value={materialRoughness} onChange={(e) => updateMaterial((m) => m.roughness = Number(e.target.value))} /></label><label className="material-row"><span>Metalness <output>{materialMetalness.toFixed(2)}</output></span><input type="range" min="0" max="1" step="0.01" value={materialMetalness} onChange={(e) => updateMaterial((m) => m.metalness = Number(e.target.value))} /></label><label className="material-row"><span>Opacity <output>{materialOpacity.toFixed(2)}</output></span><input type="range" min="0" max="1" step="0.01" value={materialOpacity} onChange={(e) => updateMaterial((m) => { m.opacity = Number(e.target.value); m.transparent = m.opacity < 1 })} /></label></div>}
-      <div className="help"><p>오브젝트 클릭: Mesh 선택</p><p><kbd>W</kbd> 이동 · <kbd>E</kbd> 회전 · <kbd>R</kbd> 스케일</p><p><kbd>Q</kbd> World / Local · <kbd>Esc</kbd> 선택 해제</p><p>카메라/조명과 HDRI 환경을 조절할 수 있습니다.</p></div>
+      <div className="help"><p>오브젝트 클릭: Mesh 선택</p><p><kbd>W</kbd> 이동 · <kbd>E</kbd> 회전 · <kbd>R</kbd> 스케일</p><p><kbd>Q</kbd> World / Local · <kbd>Esc</kbd> 선택 해제</p><p>GLTF와 .bin/텍스처를 여러 파일로 함께 업로드할 수 있습니다.</p></div>
     </aside></section></main>
 }

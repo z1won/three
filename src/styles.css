@@ -14,6 +14,7 @@ canvas { display: block; }
 .panel button { border: 1px solid rgba(255,255,255,.12); border-radius: 8px; background: rgba(255,255,255,.06); color: #fff; cursor: pointer; }
 .panel button:hover { background: rgba(255,255,255,.1); }
 .panel button.active { background: rgba(34,197,94,.2); border-color: rgba(34,197,94,.5); }
+.panel button:disabled { opacity: .3; cursor: not-allowed; }
 .scene-item { display: flex; align-items: center; width: 100%; min-height: 32px; padding: 7px 9px; text-align: left; font-size: 11px; }
 .hierarchy { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,.08); }
 .hierarchy .section-label { margin-bottom: 7px; }

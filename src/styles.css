@@ -21,9 +21,10 @@ canvas { display: block; }
 .hierarchy .child { width: calc(100% - 12px); margin: 3px 0 0 12px; padding-left: 9px; }
 .empty-hierarchy { display: block; padding: 9px 4px 3px; font-size: 10px; opacity: .45; }
 .model-loader { margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.08); }
-.file-button { display: flex; align-items: center; justify-content: center; width: 100%; padding: 10px; border: 1px dashed rgba(255,255,255,.2); border-radius: 8px; background: rgba(255,255,255,.04); font-size: 12px; cursor: pointer; }
-.file-button:hover { background: rgba(255,255,255,.08); }
-.file-button input { display: none; }
+.file-button, .inline-file-button { display: flex; align-items: center; justify-content: center; width: 100%; padding: 10px; border: 1px dashed rgba(255,255,255,.2); border-radius: 8px; background: rgba(255,255,255,.04); font-size: 12px; cursor: pointer; }
+.file-button:hover, .inline-file-button:hover { background: rgba(255,255,255,.08); }
+.file-button input, .inline-file-button input { display: none; }
+.inline-file-button { border-style: solid; padding: 8px 4px; font-size: 10px; }
 .upload-hint { display: block; margin-top: 6px; font-size: 9px; line-height: 1.4; opacity: .4; }
 .url-form { display: flex; gap: 6px; margin-top: 8px; }
 .url-form input { min-width: 0; flex: 1; padding: 9px 10px; border: 1px solid rgba(255,255,255,.12); border-radius: 8px; outline: none; background: rgba(0,0,0,.2); color: #fff; font: inherit; font-size: 11px; }
@@ -47,6 +48,8 @@ canvas { display: block; }
 .mode-buttons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .mode-buttons button { display: flex; align-items: center; justify-content: center; gap: 5px; padding: 8px 4px; font-size: 10px; }
 .transform-tools .mode-buttons + .mode-buttons { grid-template-columns: repeat(2, 1fr); margin-top: 6px; }
+.scene-tools .mode-buttons { grid-template-columns: repeat(2, 1fr); }
+.project-message { display: block; margin-top: 7px; font-size: 10px; opacity: .55; }
 kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 16px; height: 16px; padding: 0 4px; border: 1px solid rgba(255,255,255,.18); border-radius: 4px; background: rgba(0,0,0,.22); color: rgba(255,255,255,.7); font: 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
 .help { margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.08); }
 .panel p { margin: 7px 0 0; font-size: 11px; line-height: 1.45; opacity: .55; }

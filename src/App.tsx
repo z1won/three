@@ -1,6 +1,6 @@
 import { Canvas, ThreeEvent, useThree } from '@react-three/fiber'
 import { Bounds, Environment, Grid, OrbitControls, TransformControls, useGLTF } from '@react-three/drei'
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
 import './styles.css'
@@ -9,6 +9,8 @@ type TransformMode = 'translate' | 'rotate' | 'scale'
 type TransformSpace = 'world' | 'local'
 type SelectedObject = 'cube' | THREE.Object3D
 type EnvironmentPreset = 'studio' | 'city' | 'sunset' | 'dawn' | 'night' | 'warehouse' | 'forest' | 'apartment'
+type TransformSnapshot = { object: THREE.Object3D; position: THREE.Vector3; quaternion: THREE.Quaternion; scale: THREE.Vector3 }
+type HistoryEntry = { before: TransformSnapshot; after: TransformSnapshot }
 
 type ModelProps = { url: string; onSelect: (object: THREE.Object3D) => void; onLoaded: (scene: THREE.Object3D) => void }
 
@@ -39,6 +41,21 @@ function resolveResource(url: string) {
 
 function configureLoader(loader: { manager: THREE.LoadingManager }) {
   loader.manager.setURLModifier(resolveResource)
+}
+
+function captureTransform(object: THREE.Object3D): TransformSnapshot {
+  return { object, position: object.position.clone(), quaternion: object.quaternion.clone(), scale: object.scale.clone() }
+}
+
+function applyTransform(snapshot: TransformSnapshot) {
+  snapshot.object.position.copy(snapshot.position)
+  snapshot.object.quaternion.copy(snapshot.quaternion)
+  snapshot.object.scale.copy(snapshot.scale)
+  snapshot.object.updateMatrixWorld(true)
+}
+
+function sameTransform(a: TransformSnapshot, b: TransformSnapshot) {
+  return a.position.equals(b.position) && a.quaternion.equals(b.quaternion) && a.scale.equals(b.scale)
 }
 
 function Cube({ selected, mode, space, onSelect }: { selected: boolean; mode: TransformMode; space: TransformSpace; onSelect: (object: THREE.Object3D) => void }) {
@@ -107,6 +124,7 @@ export default function App() {
   const [modelScene, setModelScene] = useState<THREE.Object3D | null>(null)
   const [exportTarget, setExportTarget] = useState<THREE.Object3D | null>(null)
   const [materialVersion, setMaterialVersion] = useState(0)
+  const [historyVersion, setHistoryVersion] = useState(0)
   const [fov, setFov] = useState(50)
   const [resetCamera, setResetCamera] = useState(0)
   const [ambientIntensity, setAmbientIntensity] = useState(0.55)
@@ -119,10 +137,40 @@ export default function App() {
   const [environmentPreset, setEnvironmentPreset] = useState<EnvironmentPreset>('studio')
   const [environmentIntensity, setEnvironmentIntensity] = useState(0.7)
 
+  const undoStack = useRef<HistoryEntry[]>([])
+  const redoStack = useRef<HistoryEntry[]>([])
+
+  const pushHistory = (before: TransformSnapshot, after: TransformSnapshot) => {
+    if (sameTransform(before, after)) return
+    undoStack.current.push({ before, after })
+    redoStack.current = []
+    setHistoryVersion((v) => v + 1)
+  }
+
+  const undo = () => {
+    const entry = undoStack.current.pop()
+    if (!entry) return
+    const current = captureTransform(entry.before.object)
+    applyTransform(entry.before)
+    redoStack.current.push({ before: current, after: entry.before })
+    setHistoryVersion((v) => v + 1)
+  }
+
+  const redo = () => {
+    const entry = redoStack.current.pop()
+    if (!entry) return
+    const current = captureTransform(entry.after.object)
+    applyTransform(entry.after)
+    undoStack.current.push({ before: current, after: entry.after })
+    setHistoryVersion((v) => v + 1)
+  }
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLSelectElement) return
       const key = event.key.toLowerCase()
+      if ((event.ctrlKey || event.metaKey) && key === 'z') { event.preventDefault(); event.shiftKey ? redo() : undo(); return }
+      if ((event.ctrlKey || event.metaKey) && key === 'y') { event.preventDefault(); redo(); return }
       if (key === 'w') setMode('translate'); if (key === 'e') setMode('rotate'); if (key === 'r') setMode('scale'); if (key === 'q') setSpace((v) => v === 'world' ? 'local' : 'world'); if (key === 'escape') setSelected(null)
     }
     window.addEventListener('keydown', handleKeyDown); return () => window.removeEventListener('keydown', handleKeyDown)
@@ -131,7 +179,7 @@ export default function App() {
   const clearResources = () => { for (const url of new Set(resourceUrls.values())) URL.revokeObjectURL(url); resourceUrls.clear() }
   useEffect(() => () => { clearResources() }, [])
 
-  const loadModel = (url: string, name = 'Remote model') => { if (!url) return; setModelUrl(url); setModelName(name); setSelected(null); setModelMeshes([]); setModelScene(null); setExportTarget(null); setMaterialVersion((v) => v + 1) }
+  const loadModel = (url: string, name = 'Remote model') => { if (!url) return; setModelUrl(url); setModelName(name); setSelected(null); setModelMeshes([]); setModelScene(null); setExportTarget(null); setMaterialVersion((v) => v + 1); undoStack.current = []; redoStack.current = []; setHistoryVersion((v) => v + 1) }
 
   const handleFiles = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? [])
@@ -144,10 +192,11 @@ export default function App() {
   }
 
   const handleUrlSubmit = (event: React.FormEvent) => { event.preventDefault(); clearResources(); loadModel(urlInput.trim()) }
-  const clearModel = () => { clearResources(); setModelUrl(''); setModelName(''); setModelMeshes([]); setModelScene(null); setExportTarget(null); setSelected(null); setMaterialVersion((v) => v + 1) }
+  const clearModel = () => { clearResources(); setModelUrl(''); setModelName(''); setModelMeshes([]); setModelScene(null); setExportTarget(null); setSelected(null); setMaterialVersion((v) => v + 1); undoStack.current = []; redoStack.current = []; setHistoryVersion((v) => v + 1) }
   const selectedMesh = selected instanceof THREE.Mesh ? selected : null
   const material = selectedMesh ? getMaterial(selectedMesh) : null
   void materialVersion
+  void historyVersion
 
   const updateMaterial = (update: (material: THREE.MeshStandardMaterial | THREE.MeshPhysicalMaterial) => void) => {
     if (!material) return
@@ -167,6 +216,13 @@ export default function App() {
     setModelMeshes(getMeshNodes(scene))
   }
 
+  const handleTransformStart = (object: THREE.Object3D) => object.userData.historyBefore = captureTransform(object)
+  const handleTransformEnd = (object: THREE.Object3D) => {
+    const before = object.userData.historyBefore as TransformSnapshot | undefined
+    delete object.userData.historyBefore
+    if (before) pushHistory(before, captureTransform(object))
+  }
+
   const materialColor = material ? `#${material.color.getHexString()}` : '#ffffff'
   const materialRoughness = material?.roughness ?? 0.5
   const materialMetalness = material?.metalness ?? 0
@@ -177,16 +233,17 @@ export default function App() {
     <Canvas camera={{ position: [5, 3.5, 7], fov }} shadows onPointerMissed={() => setSelected(null)}><color attach="background" args={['#0b1020']} /><SceneSettings fov={fov} resetCamera={resetCamera} ambientIntensity={ambientIntensity} keyLightIntensity={keyLightIntensity} keyLightPosition={[keyLightX, keyLightY, keyLightZ]} fillLightIntensity={fillLightIntensity} environmentEnabled={environmentEnabled} environmentPreset={environmentPreset} environmentIntensity={environmentIntensity} />
       {!modelUrl && <Cube selected={selected === 'cube'} mode={mode} space={space} onSelect={handleSelect} />}
       {modelUrl && <Suspense fallback={null}><Bounds fit clip observe margin={1.2}><GLTFModel url={modelUrl} onSelect={handleSelect} onLoaded={handleModelLoaded} /></Bounds></Suspense>}
-      {selectedMesh && <TransformControls object={selectedMesh} mode={mode} space={space} />}<Grid args={[20, 20]} cellSize={1} cellThickness={0.6} sectionSize={5} sectionThickness={1.2} fadeDistance={30} fadeStrength={1} /><OrbitControls makeDefault enableDamping />
+      {selectedMesh && <TransformControls object={selectedMesh} mode={mode} space={space} onMouseDown={() => handleTransformStart(selectedMesh)} onMouseUp={() => handleTransformEnd(selectedMesh)} />}<Grid args={[20, 20]} cellSize={1} cellThickness={0.6} sectionSize={5} sectionThickness={1.2} fadeDistance={30} fadeStrength={1} /><OrbitControls makeDefault enableDamping />
     </Canvas>
     <aside className="panel"><h2>Scene</h2>{!modelUrl && <button className={selected === 'cube' ? 'active scene-item' : 'scene-item'} onClick={() => setSelected('cube')}>Cube</button>}
       {modelUrl && <div className="hierarchy"><span className="section-label">Hierarchy</span><button className={!selected ? 'scene-item active' : 'scene-item'} onClick={() => setSelected(null)}>◈ {modelName || 'Model'}</button>{modelMeshes.length === 0 && <span className="empty-hierarchy">모델 로딩 중...</span>}{modelMeshes.map((mesh, index) => <button key={mesh.uuid} className={selected === mesh ? 'scene-item child active' : 'scene-item child'} onClick={() => setSelected(mesh)}>◇ {mesh.name || `Mesh ${index + 1}`}</button>)}</div>}
       <div className="model-loader"><label className="file-button">GLB / GLTF + 리소스 업로드<input type="file" multiple accept=".glb,.gltf,.bin,.png,.jpg,.jpeg,.webp,.ktx2,model/gltf-binary,model/gltf+json" onChange={handleFiles} /></label><span className="upload-hint">.gltf, .bin, 텍스처를 함께 선택하세요.</span><form onSubmit={handleUrlSubmit} className="url-form"><input value={urlInput} onChange={(e) => setUrlInput(e.target.value)} placeholder="https://.../model.glb" aria-label="GLB/GLTF URL" /><button type="submit">Load</button></form>{modelUrl && <div className="loaded-model"><span title={modelName}>{modelName}</span><button type="button" onClick={clearModel}>×</button></div>}{exportTargetObject && <button className="full-button export-button" type="button" onClick={() => downloadGlb(exportTargetObject)}>Export GLB</button>}</div>
+      <div className="scene-tools"><span className="section-label">History</span><div className="mode-buttons"><button type="button" onClick={undo} disabled={undoStack.current.length === 0}>Undo <kbd>Ctrl+Z</kbd></button><button type="button" onClick={redo} disabled={redoStack.current.length === 0}>Redo <kbd>Ctrl+Y</kbd></button></div></div>
       <div className="scene-tools"><span className="section-label">Camera</span><label className="material-row"><span>FOV <output>{fov}°</output></span><input type="range" min="20" max="100" step="1" value={fov} onChange={(e) => setFov(Number(e.target.value))} /></label><button className="full-button" onClick={() => setResetCamera((v) => v + 1)}>Reset camera</button></div>
       <div className="scene-tools"><span className="section-label">Lighting</span><label className="material-row"><span>Ambient <output>{ambientIntensity.toFixed(2)}</output></span><input type="range" min="0" max="2" step="0.01" value={ambientIntensity} onChange={(e) => setAmbientIntensity(Number(e.target.value))} /></label><label className="material-row"><span>Key light <output>{keyLightIntensity.toFixed(2)}</output></span><input type="range" min="0" max="5" step="0.01" value={keyLightIntensity} onChange={(e) => setKeyLightIntensity(Number(e.target.value))} /></label><div className="light-position"><label>X<input type="range" min="-10" max="10" step="0.5" value={keyLightX} onChange={(e) => setKeyLightX(Number(e.target.value))} /></label><label>Y<input type="range" min="-10" max="15" step="0.5" value={keyLightY} onChange={(e) => setKeyLightY(Number(e.target.value))} /></label><label>Z<input type="range" min="-10" max="10" step="0.5" value={keyLightZ} onChange={(e) => setKeyLightZ(Number(e.target.value))} /></label></div><label className="material-row"><span>Fill light <output>{fillLightIntensity.toFixed(2)}</output></span><input type="range" min="0" max="2" step="0.01" value={fillLightIntensity} onChange={(e) => setFillLightIntensity(Number(e.target.value))} /></label></div>
       <div className="scene-tools"><span className="section-label">Environment</span><button className={environmentEnabled ? 'active full-button' : 'full-button'} onClick={() => setEnvironmentEnabled((v) => !v)}>{environmentEnabled ? 'HDRI on' : 'HDRI off'}</button><label className="material-row"><span>Preset</span><select className="preset-select" value={environmentPreset} onChange={(e) => setEnvironmentPreset(e.target.value as EnvironmentPreset)}><option value="studio">Studio</option><option value="city">City</option><option value="sunset">Sunset</option><option value="dawn">Dawn</option><option value="night">Night</option><option value="warehouse">Warehouse</option><option value="forest">Forest</option><option value="apartment">Apartment</option></select></label><label className="material-row"><span>Intensity <output>{environmentIntensity.toFixed(2)}</output></span><input type="range" min="0" max="2" step="0.01" value={environmentIntensity} onChange={(e) => setEnvironmentIntensity(Number(e.target.value))} /></label></div>
       {selected && <div className="transform-tools"><span className="section-label">Transform</span><div className="mode-buttons"><button className={mode === 'translate' ? 'active' : ''} onClick={() => setMode('translate')}>Move <kbd>W</kbd></button><button className={mode === 'rotate' ? 'active' : ''} onClick={() => setMode('rotate')}>Rotate <kbd>E</kbd></button><button className={mode === 'scale' ? 'active' : ''} onClick={() => setMode('scale')}>Scale <kbd>R</kbd></button></div><div className="mode-buttons"><button className={space === 'world' ? 'active' : ''} onClick={() => setSpace('world')}>World</button><button className={space === 'local' ? 'active' : ''} onClick={() => setSpace('local')}>Local</button></div></div>}
       {material && <div className="material-tools"><span className="section-label">Material</span><label className="material-row"><span>Color</span><input type="color" value={materialColor} onChange={(e) => updateMaterial((m) => m.color.set(e.target.value))} /></label><label className="material-row"><span>Roughness <output>{materialRoughness.toFixed(2)}</output></span><input type="range" min="0" max="1" step="0.01" value={materialRoughness} onChange={(e) => updateMaterial((m) => m.roughness = Number(e.target.value))} /></label><label className="material-row"><span>Metalness <output>{materialMetalness.toFixed(2)}</output></span><input type="range" min="0" max="1" step="0.01" value={materialMetalness} onChange={(e) => updateMaterial((m) => m.metalness = Number(e.target.value))} /></label><label className="material-row"><span>Opacity <output>{materialOpacity.toFixed(2)}</output></span><input type="range" min="0" max="1" step="0.01" value={materialOpacity} onChange={(e) => updateMaterial((m) => { m.opacity = Number(e.target.value); m.transparent = m.opacity < 1 })} /></label></div>}
-      <div className="help"><p>오브젝트 클릭: Mesh 선택</p><p><kbd>W</kbd> 이동 · <kbd>E</kbd> 회전 · <kbd>R</kbd> 스케일</p><p><kbd>Q</kbd> World / Local · <kbd>Esc</kbd> 선택 해제</p><p>GLTF와 .bin/텍스처를 여러 파일로 함께 업로드할 수 있습니다.</p></div>
+      <div className="help"><p>오브젝트 클릭: Mesh 선택</p><p><kbd>W</kbd> 이동 · <kbd>E</kbd> 회전 · <kbd>R</kbd> 스케일</p><p><kbd>Q</kbd> World / Local · <kbd>Esc</kbd> 선택 해제</p><p><kbd>Ctrl+Z</kbd> Undo · <kbd>Ctrl+Y</kbd> Redo</p><p>GLTF와 .bin/텍스처를 여러 파일로 함께 업로드할 수 있습니다.</p></div>
     </aside></section></main>
 }

@@ -1,5 +1,5 @@
 import { Canvas, ThreeEvent, useFrame, useThree } from '@react-three/fiber'
-import { Bounds, Grid, OrbitControls, TransformControls, useGLTF } from '@react-three/drei'
+import { Bounds, Environment, Grid, OrbitControls, TransformControls, useGLTF } from '@react-three/drei'
 import { Suspense, useEffect, useState } from 'react'
 import * as THREE from 'three'
 import './styles.css'
@@ -7,6 +7,7 @@ import './styles.css'
 type TransformMode = 'translate' | 'rotate' | 'scale'
 type TransformSpace = 'world' | 'local'
 type SelectedObject = 'cube' | THREE.Object3D
+type EnvironmentPreset = 'studio' | 'city' | 'sunset' | 'dawn' | 'night' | 'warehouse' | 'forest' | 'apartment'
 
 type ModelProps = { url: string; onSelect: (object: THREE.Object3D) => void; onLoaded: (scene: THREE.Object3D) => void }
 
@@ -17,6 +18,9 @@ type SceneSettingsProps = {
   keyLightIntensity: number
   keyLightPosition: [number, number, number]
   fillLightIntensity: number
+  environmentEnabled: boolean
+  environmentPreset: EnvironmentPreset
+  environmentIntensity: number
 }
 
 const resourceUrls = new Map<string, string>()
@@ -51,7 +55,7 @@ function GLTFModel({ url, onSelect, onLoaded }: ModelProps) {
   return <primitive object={scene} onClick={handleClick} />
 }
 
-function SceneSettings({ fov, resetCamera, ambientIntensity, keyLightIntensity, keyLightPosition, fillLightIntensity }: SceneSettingsProps) {
+function SceneSettings({ fov, resetCamera, ambientIntensity, keyLightIntensity, keyLightPosition, fillLightIntensity, environmentEnabled, environmentPreset, environmentIntensity }: SceneSettingsProps) {
   const { camera } = useThree()
   useEffect(() => {
     camera.fov = fov
@@ -65,6 +69,7 @@ function SceneSettings({ fov, resetCamera, ambientIntensity, keyLightIntensity, 
     <ambientLight intensity={ambientIntensity} />
     <directionalLight position={keyLightPosition} intensity={keyLightIntensity} castShadow />
     <directionalLight position={[-4, 3, -4]} intensity={fillLightIntensity} />
+    {environmentEnabled && <Environment key={environmentPreset} preset={environmentPreset} environmentIntensity={environmentIntensity} />}
   </>
 }
 
@@ -92,10 +97,13 @@ export default function App() {
   const [keyLightY, setKeyLightY] = useState(8)
   const [keyLightZ, setKeyLightZ] = useState(5)
   const [fillLightIntensity, setFillLightIntensity] = useState(0.5)
+  const [environmentEnabled, setEnvironmentEnabled] = useState(true)
+  const [environmentPreset, setEnvironmentPreset] = useState<EnvironmentPreset>('studio')
+  const [environmentIntensity, setEnvironmentIntensity] = useState(0.7)
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLSelectElement) return
       const key = event.key.toLowerCase()
       if (key === 'w') setMode('translate'); if (key === 'e') setMode('rotate'); if (key === 'r') setMode('scale'); if (key === 'q') setSpace((v) => v === 'world' ? 'local' : 'world'); if (key === 'escape') setSelected(null)
     }
@@ -136,7 +144,7 @@ export default function App() {
   const materialOpacity = material?.opacity ?? 1
 
   return <main className="app"><header className="toolbar"><div><strong>Three.js Playground</strong><span>Browser-only 3D renderer</span></div><span className="status">React Three Fiber · Three.js · GLB/GLTF</span></header><section className="viewport">
-    <Canvas camera={{ position: [5, 3.5, 7], fov }} shadows onPointerMissed={() => setSelected(null)}><color attach="background" args={['#0b1020']} /><SceneSettings fov={fov} resetCamera={resetCamera} ambientIntensity={ambientIntensity} keyLightIntensity={keyLightIntensity} keyLightPosition={[keyLightX, keyLightY, keyLightZ]} fillLightIntensity={fillLightIntensity} />
+    <Canvas camera={{ position: [5, 3.5, 7], fov }} shadows onPointerMissed={() => setSelected(null)}><color attach="background" args={['#0b1020']} /><SceneSettings fov={fov} resetCamera={resetCamera} ambientIntensity={ambientIntensity} keyLightIntensity={keyLightIntensity} keyLightPosition={[keyLightX, keyLightY, keyLightZ]} fillLightIntensity={fillLightIntensity} environmentEnabled={environmentEnabled} environmentPreset={environmentPreset} environmentIntensity={environmentIntensity} />
       {!modelUrl && <Cube selected={selected === 'cube'} mode={mode} space={space} onSelect={setSelected} />}
       {modelUrl && <Suspense fallback={null}><Bounds fit clip observe margin={1.2}><GLTFModel url={modelUrl} onSelect={setSelected} onLoaded={(scene) => setModelMeshes(getMeshNodes(scene))} /></Bounds></Suspense>}
       {selectedMesh && <TransformControls object={selectedMesh} mode={mode} space={space} />}<Grid args={[20, 20]} cellSize={1} cellThickness={0.6} sectionSize={5} sectionThickness={1.2} fadeDistance={30} fadeStrength={1} /><OrbitControls makeDefault enableDamping />
@@ -146,8 +154,9 @@ export default function App() {
       <div className="model-loader"><label className="file-button">GLB / GLTF + 리소스 업로드<input type="file" multiple accept=".glb,.gltf,.bin,.png,.jpg,.jpeg,.webp,.ktx2,model/gltf-binary,model/gltf+json" onChange={handleFiles} /></label><span className="upload-hint">.gltf, .bin, 텍스처를 함께 선택하세요.</span><form onSubmit={handleUrlSubmit} className="url-form"><input value={urlInput} onChange={(e) => setUrlInput(e.target.value)} placeholder="https://.../model.glb" aria-label="GLB/GLTF URL" /><button type="submit">Load</button></form>{modelUrl && <div className="loaded-model"><span title={modelName}>{modelName}</span><button type="button" onClick={clearModel}>×</button></div>}</div>
       <div className="scene-tools"><span className="section-label">Camera</span><label className="material-row"><span>FOV <output>{fov}°</output></span><input type="range" min="20" max="100" step="1" value={fov} onChange={(e) => setFov(Number(e.target.value))} /></label><button className="full-button" onClick={() => setResetCamera((v) => v + 1)}>Reset camera</button></div>
       <div className="scene-tools"><span className="section-label">Lighting</span><label className="material-row"><span>Ambient <output>{ambientIntensity.toFixed(2)}</output></span><input type="range" min="0" max="2" step="0.01" value={ambientIntensity} onChange={(e) => setAmbientIntensity(Number(e.target.value))} /></label><label className="material-row"><span>Key light <output>{keyLightIntensity.toFixed(2)}</output></span><input type="range" min="0" max="5" step="0.01" value={keyLightIntensity} onChange={(e) => setKeyLightIntensity(Number(e.target.value))} /></label><div className="light-position"><label>X<input type="range" min="-10" max="10" step="0.5" value={keyLightX} onChange={(e) => setKeyLightX(Number(e.target.value))} /></label><label>Y<input type="range" min="-10" max="15" step="0.5" value={keyLightY} onChange={(e) => setKeyLightY(Number(e.target.value))} /></label><label>Z<input type="range" min="-10" max="10" step="0.5" value={keyLightZ} onChange={(e) => setKeyLightZ(Number(e.target.value))} /></label></div><label className="material-row"><span>Fill light <output>{fillLightIntensity.toFixed(2)}</output></span><input type="range" min="0" max="2" step="0.01" value={fillLightIntensity} onChange={(e) => setFillLightIntensity(Number(e.target.value))} /></label></div>
+      <div className="scene-tools"><span className="section-label">Environment</span><button className={environmentEnabled ? 'active full-button' : 'full-button'} onClick={() => setEnvironmentEnabled((v) => !v)}>{environmentEnabled ? 'HDRI on' : 'HDRI off'}</button><label className="material-row"><span>Preset</span><select className="preset-select" value={environmentPreset} onChange={(e) => setEnvironmentPreset(e.target.value as EnvironmentPreset)}><option value="studio">Studio</option><option value="city">City</option><option value="sunset">Sunset</option><option value="dawn">Dawn</option><option value="night">Night</option><option value="warehouse">Warehouse</option><option value="forest">Forest</option><option value="apartment">Apartment</option></select></label><label className="material-row"><span>Intensity <output>{environmentIntensity.toFixed(2)}</output></span><input type="range" min="0" max="2" step="0.01" value={environmentIntensity} onChange={(e) => setEnvironmentIntensity(Number(e.target.value))} /></label></div>
       {selected && <div className="transform-tools"><span className="section-label">Transform</span><div className="mode-buttons"><button className={mode === 'translate' ? 'active' : ''} onClick={() => setMode('translate')}>Move <kbd>W</kbd></button><button className={mode === 'rotate' ? 'active' : ''} onClick={() => setMode('rotate')}>Rotate <kbd>E</kbd></button><button className={mode === 'scale' ? 'active' : ''} onClick={() => setMode('scale')}>Scale <kbd>R</kbd></button></div><div className="mode-buttons"><button className={space === 'world' ? 'active' : ''} onClick={() => setSpace('world')}>World</button><button className={space === 'local' ? 'active' : ''} onClick={() => setSpace('local')}>Local</button></div></div>}
       {material && <div className="material-tools"><span className="section-label">Material</span><label className="material-row"><span>Color</span><input type="color" value={materialColor} onChange={(e) => updateMaterial((m) => m.color.set(e.target.value))} /></label><label className="material-row"><span>Roughness <output>{materialRoughness.toFixed(2)}</output></span><input type="range" min="0" max="1" step="0.01" value={materialRoughness} onChange={(e) => updateMaterial((m) => m.roughness = Number(e.target.value))} /></label><label className="material-row"><span>Metalness <output>{materialMetalness.toFixed(2)}</output></span><input type="range" min="0" max="1" step="0.01" value={materialMetalness} onChange={(e) => updateMaterial((m) => m.metalness = Number(e.target.value))} /></label><label className="material-row"><span>Opacity <output>{materialOpacity.toFixed(2)}</output></span><input type="range" min="0" max="1" step="0.01" value={materialOpacity} onChange={(e) => updateMaterial((m) => { m.opacity = Number(e.target.value); m.transparent = m.opacity < 1 })} /></label></div>}
-      <div className="help"><p>오브젝트 클릭: Mesh 선택</p><p><kbd>W</kbd> 이동 · <kbd>E</kbd> 회전 · <kbd>R</kbd> 스케일</p><p><kbd>Q</kbd> World / Local · <kbd>Esc</kbd> 선택 해제</p><p>카메라 FOV와 조명 위치/강도를 조절할 수 있습니다.</p></div>
+      <div className="help"><p>오브젝트 클릭: Mesh 선택</p><p><kbd>W</kbd> 이동 · <kbd>E</kbd> 회전 · <kbd>R</kbd> 스케일</p><p><kbd>Q</kbd> World / Local · <kbd>Esc</kbd> 선택 해제</p><p>카메라/조명과 HDRI 환경을 조절할 수 있습니다.</p></div>
     </aside></section></main>
 }

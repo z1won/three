@@ -6,48 +6,65 @@ import './styles.css'
 
 type TransformMode = 'translate' | 'rotate' | 'scale'
 type TransformSpace = 'world' | 'local'
+type SelectedObject = 'cube' | THREE.Object3D
 
 type ModelProps = {
   url: string
-  selected: boolean
+  selectedObject: THREE.Object3D | null
   mode: TransformMode
   space: TransformSpace
-  onSelect: () => void
+  onSelect: (object: THREE.Object3D) => void
 }
 
-function Cube({ selected, mode, space, onSelect }: { selected: boolean; mode: TransformMode; space: TransformSpace; onSelect: () => void }) {
+function Cube({ selected, mode, space, onSelect }: { selected: boolean; mode: TransformMode; space: TransformSpace; onSelect: (object: THREE.Object3D) => void }) {
   const ref = useRef<THREE.Mesh>(null)
   useFrame((_, delta) => {
     if (ref.current && !selected) ref.current.rotation.y += delta * 0.5
   })
-  const cube = <mesh ref={ref} position={[0, 1, 0]} onClick={(e) => { e.stopPropagation(); onSelect() }}>
+  const cube = <mesh ref={ref} position={[0, 1, 0]} onClick={(e) => { e.stopPropagation(); onSelect(e.object) }}>
     <boxGeometry args={[2, 2, 2]} />
     <meshStandardMaterial color={selected ? '#22c55e' : '#4f46e5'} roughness={0.35} metalness={0.15} />
   </mesh>
   return selected ? <TransformControls mode={mode} space={space}>{cube}</TransformControls> : cube
 }
 
-function GLTFModel({ url, selected, mode, space, onSelect }: ModelProps) {
+function GLTFModel({ url, selectedObject, mode, space, onSelect }: ModelProps) {
   const { scene } = useGLTF(url)
   useEffect(() => {
     scene.traverse((object) => {
+      object.userData.editorSelectable = object instanceof THREE.Mesh
       if (object instanceof THREE.Mesh) {
         object.castShadow = true
         object.receiveShadow = true
       }
     })
   }, [scene])
-  const model = <group onClick={(e) => { e.stopPropagation(); onSelect() }}><primitive object={scene} /></group>
-  return selected ? <TransformControls mode={mode} space={space}>{model}</TransformControls> : model
+
+  const handleClick = (event: THREE.Event & { stopPropagation: () => void }) => {
+    event.stopPropagation()
+    const object = event.target as THREE.Object3D
+    if (object instanceof THREE.Mesh) onSelect(object)
+  }
+
+  return <primitive object={scene} onClick={handleClick} />
+}
+
+function getMeshNodes(scene: THREE.Object3D) {
+  const nodes: THREE.Mesh[] = []
+  scene.traverse((object) => {
+    if (object instanceof THREE.Mesh) nodes.push(object)
+  })
+  return nodes
 }
 
 export default function App() {
-  const [selected, setSelected] = useState<'cube' | 'model' | null>(null)
+  const [selected, setSelected] = useState<SelectedObject | null>(null)
   const [modelUrl, setModelUrl] = useState('')
   const [urlInput, setUrlInput] = useState('')
   const [modelName, setModelName] = useState('')
   const [mode, setMode] = useState<TransformMode>('translate')
   const [space, setSpace] = useState<TransformSpace>('world')
+  const [modelMeshes, setModelMeshes] = useState<THREE.Mesh[]>([])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -57,6 +74,7 @@ export default function App() {
       if (key === 'e') setMode('rotate')
       if (key === 'r') setMode('scale')
       if (key === 'q') setSpace((current) => current === 'world' ? 'local' : 'world')
+      if (key === 'escape') setSelected(null)
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
@@ -70,7 +88,8 @@ export default function App() {
     if (!url) return
     setModelUrl(url)
     setModelName(name)
-    setSelected('model')
+    setSelected(null)
+    setModelMeshes([])
   }
 
   const handleFile = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -95,8 +114,16 @@ export default function App() {
     if (modelUrl.startsWith('blob:')) URL.revokeObjectURL(modelUrl)
     setModelUrl('')
     setModelName('')
+    setModelMeshes([])
     setSelected(null)
   }
+
+  const handleModelLoaded = (scene: THREE.Object3D) => {
+    setModelMeshes(getMeshNodes(scene))
+  }
+
+  const selectObject = (object: THREE.Object3D) => setSelected(object)
+  const selectedMesh = selected instanceof THREE.Object3D ? selected : null
 
   return <main className="app">
     <header className="toolbar">
@@ -109,14 +136,21 @@ export default function App() {
         <ambientLight intensity={0.55} />
         <directionalLight position={[5, 8, 5]} intensity={2} castShadow />
         <directionalLight position={[-4, 3, -4]} intensity={0.5} />
-        {!modelUrl && <Cube selected={selected === 'cube'} mode={mode} space={space} onSelect={() => setSelected('cube')} />}
-        {modelUrl && <Suspense fallback={null}><Bounds fit clip observe margin={1.2}><GLTFModel url={modelUrl} selected={selected === 'model'} mode={mode} space={space} onSelect={() => setSelected('model')} /></Bounds></Suspense>}
+        {!modelUrl && <Cube selected={selected === 'cube'} mode={mode} space={space} onSelect={(object) => setSelected(object === selected ? null : 'cube')} />}
+        {modelUrl && <Suspense fallback={null}><Bounds fit clip observe margin={1.2}><GLTFModel url={modelUrl} selectedObject={selectedMesh} mode={mode} space={space} onSelect={selectObject} /></Bounds></Suspense>}
+        {selectedMesh && <TransformControls object={selectedMesh} mode={mode} space={space} />}
         <Grid args={[20, 20]} cellSize={1} cellThickness={0.6} sectionSize={5} sectionThickness={1.2} fadeDistance={30} fadeStrength={1} />
         <OrbitControls makeDefault enableDamping />
       </Canvas>
       <aside className="panel">
         <h2>Scene</h2>
-        {!modelUrl && <button className={selected === 'cube' ? 'active' : ''} onClick={() => setSelected('cube')}>Cube</button>}
+        {!modelUrl && <button className={selected === 'cube' ? 'active scene-item' : 'scene-item'} onClick={() => setSelected('cube')}>Cube</button>}
+        {modelUrl && <div className="hierarchy">
+          <span className="section-label">Hierarchy</span>
+          <button className={!selected ? 'scene-item active' : 'scene-item'} onClick={() => setSelected(null)}>◈ {modelName || 'Model'}</button>
+          {modelMeshes.length === 0 && <span className="empty-hierarchy">모델 로딩 중...</span>}
+          {modelMeshes.map((mesh, index) => <button key={mesh.uuid} className={selected === mesh ? 'scene-item child active' : 'scene-item child'} onClick={() => setSelected(mesh)}>◇ {mesh.name || `Mesh ${index + 1}`}</button>)}
+        </div>}
         <div className="model-loader">
           <label className="file-button">GLB / GLTF 업로드<input type="file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json" onChange={handleFile} /></label>
           <form onSubmit={handleUrlSubmit} className="url-form"><input value={urlInput} onChange={(e) => setUrlInput(e.target.value)} placeholder="https://.../model.glb" aria-label="GLB/GLTF URL" /><button type="submit">Load</button></form>
@@ -129,12 +163,9 @@ export default function App() {
             <button className={mode === 'rotate' ? 'active' : ''} onClick={() => setMode('rotate')}>Rotate <kbd>E</kbd></button>
             <button className={mode === 'scale' ? 'active' : ''} onClick={() => setMode('scale')}>Scale <kbd>R</kbd></button>
           </div>
-          <div className="mode-buttons">
-            <button className={space === 'world' ? 'active' : ''} onClick={() => setSpace('world')}>World</button>
-            <button className={space === 'local' ? 'active' : ''} onClick={() => setSpace('local')}>Local</button>
-          </div>
+          <div className="mode-buttons"><button className={space === 'world' ? 'active' : ''} onClick={() => setSpace('world')}>World</button><button className={space === 'local' ? 'active' : ''} onClick={() => setSpace('local')}>Local</button></div>
         </div>}
-        <div className="help"><p>마우스 드래그: 카메라 회전</p><p>휠: 줌</p><p>오브젝트 클릭: 선택</p><p><kbd>W</kbd> 이동 · <kbd>E</kbd> 회전 · <kbd>R</kbd> 스케일</p><p><kbd>Q</kbd> World / Local 전환</p><p>GLB/GLTF는 서버 없이 브라우저에서 바로 로드됩니다.</p></div>
+        <div className="help"><p>오브젝트 클릭: Mesh 선택</p><p><kbd>W</kbd> 이동 · <kbd>E</kbd> 회전 · <kbd>R</kbd> 스케일</p><p><kbd>Q</kbd> World / Local · <kbd>Esc</kbd> 선택 해제</p><p>Hierarchy에서 개별 Mesh를 선택할 수 있습니다.</p></div>
       </aside>
     </section>
   </main>

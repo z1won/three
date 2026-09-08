@@ -1,5 +1,5 @@
 import { Canvas, useFrame } from '@react-three/fiber'
-import { Grid, OrbitControls, TransformControls, useGLTF } from '@react-three/drei'
+import { Bounds, Grid, OrbitControls, TransformControls, useGLTF } from '@react-three/drei'
 import { Suspense, useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import './styles.css'
@@ -136,12 +136,14 @@ export default function App() {
 
           {modelUrl && (
             <Suspense fallback={null}>
-              <GLTFModel
-                url={modelUrl}
-                selected={selected === 'model'}
-                mode={mode}
-                onSelect={() => setSelected('model')}
-              />
+              <Bounds fit clip margin={1.2}>
+                <GLTFModel
+                  url={modelUrl}
+                  selected={selected === 'model'}
+                  mode={mode}
+                  onSelect={() => setSelected('model')}
+                />
+              </Bounds>
             </Suspense>
           )}
 
@@ -205,7 +207,7 @@ export default function App() {
             <p>마우스 드래그: 카메라 회전</p>
             <p>휠: 줌</p>
             <p>오브젝트 클릭: 선택</p>
-            <p>GLB/GLTF는 서버 없이 브라우저에서 바로 로드됩니다.</p>
+            <p>GLB/GLTF 업로드 시 모델 크기에 맞춰 카메라가 자동 조정됩니다.</p>
           </div>
         </aside>
       </section>

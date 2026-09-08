@@ -58,9 +58,8 @@ function sameTransform(a: TransformSnapshot, b: TransformSnapshot) {
   return a.position.equals(b.position) && a.quaternion.equals(b.quaternion) && a.scale.equals(b.scale)
 }
 
-function Cube({ selected, mode, space, onSelect }: { selected: boolean; mode: TransformMode; space: TransformSpace; onSelect: (object: THREE.Object3D) => void }) {
-  const cube = <mesh position={[0, 1, 0]} onClick={(e) => { e.stopPropagation(); onSelect(e.object) }}><boxGeometry args={[2, 2, 2]} /><meshStandardMaterial color={selected ? '#22c55e' : '#4f46e5'} roughness={0.35} metalness={0.15} /></mesh>
-  return selected ? <TransformControls mode={mode} space={space}>{cube}</TransformControls> : cube
+function Cube({ selected, onSelect }: { selected: boolean; onSelect: (object: THREE.Object3D) => void }) {
+  return <mesh position={[0, 1, 0]} onClick={(e) => { e.stopPropagation(); onSelect(e.object) }}><boxGeometry args={[2, 2, 2]} /><meshStandardMaterial color={selected ? '#22c55e' : '#4f46e5'} roughness={0.35} metalness={0.15} /></mesh>
 }
 
 function GLTFModel({ url, onSelect, onLoaded }: ModelProps) {
@@ -231,7 +230,7 @@ export default function App() {
 
   return <main className="app"><header className="toolbar"><div><strong>Three.js Playground</strong><span>Browser-only 3D renderer</span></div><span className="status">React Three Fiber · Three.js · GLB/GLTF</span></header><section className="viewport">
     <Canvas camera={{ position: [5, 3.5, 7], fov }} shadows onPointerMissed={() => setSelected(null)}><color attach="background" args={['#0b1020']} /><SceneSettings fov={fov} resetCamera={resetCamera} ambientIntensity={ambientIntensity} keyLightIntensity={keyLightIntensity} keyLightPosition={[keyLightX, keyLightY, keyLightZ]} fillLightIntensity={fillLightIntensity} environmentEnabled={environmentEnabled} environmentPreset={environmentPreset} environmentIntensity={environmentIntensity} />
-      {!modelUrl && <Cube selected={selected === 'cube'} mode={mode} space={space} onSelect={handleSelect} />}
+      {!modelUrl && <Cube selected={selected === 'cube'} onSelect={handleSelect} />}
       {modelUrl && <Suspense fallback={null}><Bounds fit clip observe margin={1.2}><GLTFModel url={modelUrl} onSelect={handleSelect} onLoaded={handleModelLoaded} /></Bounds></Suspense>}
       {selectedMesh && <TransformControls object={selectedMesh} mode={mode} space={space} onMouseDown={() => handleTransformStart(selectedMesh)} onMouseUp={() => handleTransformEnd(selectedMesh)} />}<Grid args={[20, 20]} cellSize={1} cellThickness={0.6} sectionSize={5} sectionThickness={1.2} fadeDistance={30} fadeStrength={1} /><OrbitControls makeDefault enableDamping />
     </Canvas>

@@ -37,6 +37,7 @@ canvas { display: block; }
 .material-row output { font-variant-numeric: tabular-nums; opacity: .6; }
 .material-row input[type="range"] { width: 100%; margin: 0; accent-color: #22c55e; }
 .material-row input[type="color"] { width: 100%; height: 30px; padding: 2px; border: 1px solid rgba(255,255,255,.12); border-radius: 6px; background: transparent; cursor: pointer; }
+.preset-select { width: 100%; padding: 7px 8px; border: 1px solid rgba(255,255,255,.12); border-radius: 7px; outline: none; background: rgba(0,0,0,.2); color: #fff; font: inherit; font-size: 10px; }
 .light-position { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-top: 9px; }
 .light-position label { display: flex; flex-direction: column; gap: 5px; font-size: 9px; opacity: .7; }
 .light-position input { width: 100%; margin: 0; accent-color: #22c55e; }

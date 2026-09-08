@@ -10,8 +10,6 @@ type SelectedObject = 'cube' | THREE.Object3D
 
 type ModelProps = {
   url: string
-  mode: TransformMode
-  space: TransformSpace
   onSelect: (object: THREE.Object3D) => void
   onLoaded: (scene: THREE.Object3D) => void
 }
@@ -28,7 +26,7 @@ function Cube({ selected, mode, space, onSelect }: { selected: boolean; mode: Tr
   return selected ? <TransformControls mode={mode} space={space}>{cube}</TransformControls> : cube
 }
 
-function GLTFModel({ url, mode, space, onSelect, onLoaded }: ModelProps) {
+function GLTFModel({ url, onSelect, onLoaded }: ModelProps) {
   const { scene } = useGLTF(url)
   useEffect(() => {
     scene.traverse((object) => {
@@ -133,15 +131,15 @@ export default function App() {
         <ambientLight intensity={0.55} />
         <directionalLight position={[5, 8, 5]} intensity={2} castShadow />
         <directionalLight position={[-4, 3, -4]} intensity={0.5} />
-        {!modelUrl && <Cube selected={selected === 'cube'} mode={mode} space={space} onSelect={() => setSelected('cube')} />}
-        {modelUrl && <Suspense fallback={null}><Bounds fit clip observe margin={1.2}><GLTFModel url={modelUrl} mode={mode} space={space} onSelect={selectObject} onLoaded={handleModelLoaded} /></Bounds></Suspense>}
+        {!modelUrl && <Cube selected={selected === 'cube'} mode={mode} space={space} onSelect={selectObject} />}
+        {modelUrl && <Suspense fallback={null}><Bounds fit clip observe margin={1.2}><GLTFModel url={modelUrl} onSelect={selectObject} onLoaded={handleModelLoaded} /></Bounds></Suspense>}
         {selectedMesh && <TransformControls object={selectedMesh} mode={mode} space={space} />}
         <Grid args={[20, 20]} cellSize={1} cellThickness={0.6} sectionSize={5} sectionThickness={1.2} fadeDistance={30} fadeStrength={1} />
         <OrbitControls makeDefault enableDamping />
       </Canvas>
       <aside className="panel">
         <h2>Scene</h2>
-        {!modelUrl && <button className={selected === 'cube' ? 'active scene-item' : 'scene-item'} onClick={() => setSelected('cube')}>Cube</button>}
+        {!modelUrl && <button className={selected === 'cube' ? 'active scene-item' : 'scene-item'} onClick={() => refocusCube(setSelected)}>Cube</button>}
         {modelUrl && <div className="hierarchy">
           <span className="section-label">Hierarchy</span>
           <button className={!selected ? 'scene-item active' : 'scene-item'} onClick={() => setSelected(null)}>◈ {modelName || 'Model'}</button>
@@ -166,4 +164,8 @@ export default function App() {
       </aside>
     </section>
   </main>
+}
+
+function refocusCube(setSelected: (value: SelectedObject | null) => void) {
+  setSelected('cube')
 }

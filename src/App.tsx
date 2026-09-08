@@ -5,15 +5,17 @@ import * as THREE from 'three'
 import './styles.css'
 
 type TransformMode = 'translate' | 'rotate' | 'scale'
+type TransformSpace = 'world' | 'local'
 
 type ModelProps = {
   url: string
   selected: boolean
   mode: TransformMode
+  space: TransformSpace
   onSelect: () => void
 }
 
-function Cube({ selected, mode, onSelect }: { selected: boolean; mode: TransformMode; onSelect: () => void }) {
+function Cube({ selected, mode, space, onSelect }: { selected: boolean; mode: TransformMode; space: TransformSpace; onSelect: () => void }) {
   const ref = useRef<THREE.Mesh>(null)
   useFrame((_, delta) => {
     if (ref.current && !selected) ref.current.rotation.y += delta * 0.5
@@ -22,10 +24,10 @@ function Cube({ selected, mode, onSelect }: { selected: boolean; mode: Transform
     <boxGeometry args={[2, 2, 2]} />
     <meshStandardMaterial color={selected ? '#22c55e' : '#4f46e5'} roughness={0.35} metalness={0.15} />
   </mesh>
-  return selected ? <TransformControls mode={mode}>{cube}</TransformControls> : cube
+  return selected ? <TransformControls mode={mode} space={space}>{cube}</TransformControls> : cube
 }
 
-function GLTFModel({ url, selected, mode, onSelect }: ModelProps) {
+function GLTFModel({ url, selected, mode, space, onSelect }: ModelProps) {
   const { scene } = useGLTF(url)
   useEffect(() => {
     scene.traverse((object) => {
@@ -36,7 +38,7 @@ function GLTFModel({ url, selected, mode, onSelect }: ModelProps) {
     })
   }, [scene])
   const model = <group onClick={(e) => { e.stopPropagation(); onSelect() }}><primitive object={scene} /></group>
-  return selected ? <TransformControls mode={mode}>{model}</TransformControls> : model
+  return selected ? <TransformControls mode={mode} space={space}>{model}</TransformControls> : model
 }
 
 export default function App() {
@@ -45,13 +47,16 @@ export default function App() {
   const [urlInput, setUrlInput] = useState('')
   const [modelName, setModelName] = useState('')
   const [mode, setMode] = useState<TransformMode>('translate')
+  const [space, setSpace] = useState<TransformSpace>('world')
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return
-      if (event.key.toLowerCase() === 'w') setMode('translate')
-      if (event.key.toLowerCase() === 'e') setMode('rotate')
-      if (event.key.toLowerCase() === 'r') setMode('scale')
+      const key = event.key.toLowerCase()
+      if (key === 'w') setMode('translate')
+      if (key === 'e') setMode('rotate')
+      if (key === 'r') setMode('scale')
+      if (key === 'q') setSpace((current) => current === 'world' ? 'local' : 'world')
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
@@ -104,8 +109,8 @@ export default function App() {
         <ambientLight intensity={0.55} />
         <directionalLight position={[5, 8, 5]} intensity={2} castShadow />
         <directionalLight position={[-4, 3, -4]} intensity={0.5} />
-        {!modelUrl && <Cube selected={selected === 'cube'} mode={mode} onSelect={() => setSelected('cube')} />}
-        {modelUrl && <Suspense fallback={null}><Bounds fit clip observe margin={1.2}><GLTFModel url={modelUrl} selected={selected === 'model'} mode={mode} onSelect={() => setSelected('model')} /></Bounds></Suspense>}
+        {!modelUrl && <Cube selected={selected === 'cube'} mode={mode} space={space} onSelect={() => setSelected('cube')} />}
+        {modelUrl && <Suspense fallback={null}><Bounds fit clip observe margin={1.2}><GLTFModel url={modelUrl} selected={selected === 'model'} mode={mode} space={space} onSelect={() => setSelected('model')} /></Bounds></Suspense>}
         <Grid args={[20, 20]} cellSize={1} cellThickness={0.6} sectionSize={5} sectionThickness={1.2} fadeDistance={30} fadeStrength={1} />
         <OrbitControls makeDefault enableDamping />
       </Canvas>
@@ -117,12 +122,19 @@ export default function App() {
           <form onSubmit={handleUrlSubmit} className="url-form"><input value={urlInput} onChange={(e) => setUrlInput(e.target.value)} placeholder="https://.../model.glb" aria-label="GLB/GLTF URL" /><button type="submit">Load</button></form>
           {modelUrl && <div className="loaded-model"><span title={modelName}>{modelName}</span><button type="button" onClick={clearModel}>×</button></div>}
         </div>
-        {selected && <div className="transform-tools"><span className="section-label">Transform</span><div className="mode-buttons">
-          <button className={mode === 'translate' ? 'active' : ''} onClick={() => setMode('translate')}>Move <kbd>W</kbd></button>
-          <button className={mode === 'rotate' ? 'active' : ''} onClick={() => setMode('rotate')}>Rotate <kbd>E</kbd></button>
-          <button className={mode === 'scale' ? 'active' : ''} onClick={() => setMode('scale')}>Scale <kbd>R</kbd></button>
-        </div></div>}
-        <div className="help"><p>마우스 드래그: 카메라 회전</p><p>휠: 줌</p><p>오브젝트 클릭: 선택</p><p><kbd>W</kbd> 이동 · <kbd>E</kbd> 회전 · <kbd>R</kbd> 스케일</p><p>GLB/GLTF는 서버 없이 브라우저에서 바로 로드됩니다.</p></div>
+        {selected && <div className="transform-tools">
+          <span className="section-label">Transform</span>
+          <div className="mode-buttons">
+            <button className={mode === 'translate' ? 'active' : ''} onClick={() => setMode('translate')}>Move <kbd>W</kbd></button>
+            <button className={mode === 'rotate' ? 'active' : ''} onClick={() => setMode('rotate')}>Rotate <kbd>E</kbd></button>
+            <button className={mode === 'scale' ? 'active' : ''} onClick={() => setMode('scale')}>Scale <kbd>R</kbd></button>
+          </div>
+          <div className="mode-buttons">
+            <button className={space === 'world' ? 'active' : ''} onClick={() => setSpace('world')}>World</button>
+            <button className={space === 'local' ? 'active' : ''} onClick={() => setSpace('local')}>Local</button>
+          </div>
+        </div>}
+        <div className="help"><p>마우스 드래그: 카메라 회전</p><p>휠: 줌</p><p>오브젝트 클릭: 선택</p><p><kbd>W</kbd> 이동 · <kbd>E</kbd> 회전 · <kbd>R</kbd> 스케일</p><p><kbd>Q</kbd> World / Local 전환</p><p>GLB/GLTF는 서버 없이 브라우저에서 바로 로드됩니다.</p></div>
       </aside>
     </section>
   </main>

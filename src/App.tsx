@@ -1,4 +1,4 @@
-import { Canvas, useFrame } from '@react-three/fiber'
+import { Canvas, ThreeEvent, useFrame } from '@react-three/fiber'
 import { Bounds, Grid, OrbitControls, TransformControls, useGLTF } from '@react-three/drei'
 import { Suspense, useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
@@ -10,10 +10,10 @@ type SelectedObject = 'cube' | THREE.Object3D
 
 type ModelProps = {
   url: string
-  selectedObject: THREE.Object3D | null
   mode: TransformMode
   space: TransformSpace
   onSelect: (object: THREE.Object3D) => void
+  onLoaded: (scene: THREE.Object3D) => void
 }
 
 function Cube({ selected, mode, space, onSelect }: { selected: boolean; mode: TransformMode; space: TransformSpace; onSelect: (object: THREE.Object3D) => void }) {
@@ -28,22 +28,22 @@ function Cube({ selected, mode, space, onSelect }: { selected: boolean; mode: Tr
   return selected ? <TransformControls mode={mode} space={space}>{cube}</TransformControls> : cube
 }
 
-function GLTFModel({ url, selectedObject, mode, space, onSelect }: ModelProps) {
+function GLTFModel({ url, mode, space, onSelect, onLoaded }: ModelProps) {
   const { scene } = useGLTF(url)
   useEffect(() => {
     scene.traverse((object) => {
-      object.userData.editorSelectable = object instanceof THREE.Mesh
       if (object instanceof THREE.Mesh) {
+        object.userData.editorSelectable = true
         object.castShadow = true
         object.receiveShadow = true
       }
     })
-  }, [scene])
+    onLoaded(scene)
+  }, [scene, onLoaded])
 
-  const handleClick = (event: THREE.Event & { stopPropagation: () => void }) => {
+  const handleClick = (event: ThreeEvent<MouseEvent>) => {
     event.stopPropagation()
-    const object = event.target as THREE.Object3D
-    if (object instanceof THREE.Mesh) onSelect(object)
+    if (event.object instanceof THREE.Mesh) onSelect(event.object)
   }
 
   return <primitive object={scene} onClick={handleClick} />
@@ -118,10 +118,7 @@ export default function App() {
     setSelected(null)
   }
 
-  const handleModelLoaded = (scene: THREE.Object3D) => {
-    setModelMeshes(getMeshNodes(scene))
-  }
-
+  const handleModelLoaded = (scene: THREE.Object3D) => setModelMeshes(getMeshNodes(scene))
   const selectObject = (object: THREE.Object3D) => setSelected(object)
   const selectedMesh = selected instanceof THREE.Object3D ? selected : null
 
@@ -136,8 +133,8 @@ export default function App() {
         <ambientLight intensity={0.55} />
         <directionalLight position={[5, 8, 5]} intensity={2} castShadow />
         <directionalLight position={[-4, 3, -4]} intensity={0.5} />
-        {!modelUrl && <Cube selected={selected === 'cube'} mode={mode} space={space} onSelect={(object) => setSelected(object === selected ? null : 'cube')} />}
-        {modelUrl && <Suspense fallback={null}><Bounds fit clip observe margin={1.2}><GLTFModel url={modelUrl} selectedObject={selectedMesh} mode={mode} space={space} onSelect={selectObject} /></Bounds></Suspense>}
+        {!modelUrl && <Cube selected={selected === 'cube'} mode={mode} space={space} onSelect={() => setSelected('cube')} />}
+        {modelUrl && <Suspense fallback={null}><Bounds fit clip observe margin={1.2}><GLTFModel url={modelUrl} mode={mode} space={space} onSelect={selectObject} onLoaded={handleModelLoaded} /></Bounds></Suspense>}
         {selectedMesh && <TransformControls object={selectedMesh} mode={mode} space={space} />}
         <Grid args={[20, 20]} cellSize={1} cellThickness={0.6} sectionSize={5} sectionThickness={1.2} fadeDistance={30} fadeStrength={1} />
         <OrbitControls makeDefault enableDamping />

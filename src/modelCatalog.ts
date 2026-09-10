@@ -13,7 +13,6 @@ const sampleAssets = 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample
 
 export const publicModels: PublicModel[] = [
   { name: 'Damaged Helmet', format: 'GLB', url: `${sampleAssets}DamagedHelmet/glTF-Binary/DamagedHelmet.glb`, description: 'PBR material / texture sample' },
-  { name: 'Flight Helmet', format: 'GLB', url: `${sampleAssets}FlightHelmet/glTF-Binary/FlightHelmet.glb`, description: 'Detailed hard-surface model' },
   { name: 'Cesium Man', format: 'GLB', url: `${sampleAssets}CesiumMan/glTF-Binary/CesiumMan.glb`, description: 'Animated character sample' },
   { name: 'Fox', format: 'GLB', url: `${sampleAssets}Fox/glTF-Binary/Fox.glb`, description: 'Character with animation clips' },
   { name: 'BoomBox', format: 'GLB', url: `${sampleAssets}BoomBox/glTF-Binary/BoomBox.glb`, description: 'PBR / normal-map sample' },

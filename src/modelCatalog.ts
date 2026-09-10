@@ -44,17 +44,10 @@ function mountThumbnail(card: Element, catalogModel: PublicModel) {
   host.setAttribute('aria-hidden', 'true')
   card.prepend(host)
 
-  const canvas = document.createElement('canvas')
-  host.appendChild(canvas)
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' })
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
-  renderer.outputColorSpace = THREE.SRGBColorSpace
-  renderer.toneMapping = THREE.ACESFilmicToneMapping
-  renderer.toneMappingExposure = 1.05
-
+  let renderer: THREE.WebGLRenderer | null = null
+  let canvas: HTMLCanvasElement | null = null
   const scene = new THREE.Scene()
   const camera = new THREE.PerspectiveCamera(32, 1, 0.01, 1000)
-  camera.position.set(3, 1.8, 4)
   scene.add(new THREE.HemisphereLight(0xffffff, 0x182033, 2.2))
   const key = new THREE.DirectionalLight(0xffffff, 3.2)
   key.position.set(4, 6, 5)
@@ -70,6 +63,7 @@ function mountThumbnail(card: Element, catalogModel: PublicModel) {
   let loadStarted = false
 
   const resize = () => {
+    if (!renderer) return
     const width = Math.max(host.clientWidth, 1)
     const height = Math.max(host.clientHeight, 1)
     renderer.setSize(width, height, false)
@@ -91,12 +85,40 @@ function mountThumbnail(card: Element, catalogModel: PublicModel) {
   }
 
   const render = () => {
-    if (disposed) return
-    if (active && previewModel) {
+    if (disposed || !active || !renderer) return
+    if (previewModel) {
       previewModel.rotation.y += 0.004
       renderer.render(scene, camera)
     }
     frameId = requestAnimationFrame(render)
+  }
+
+  const createRenderer = () => {
+    if (renderer || disposed) return
+    canvas = document.createElement('canvas')
+    host.appendChild(canvas)
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'low-power' })
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25))
+    renderer.outputColorSpace = THREE.SRGBColorSpace
+    renderer.toneMapping = THREE.ACESFilmicToneMapping
+    renderer.toneMappingExposure = 1.05
+    resize()
+    if (previewModel) {
+      frameModel(previewModel)
+      render()
+    }
+  }
+
+  const disposeRenderer = () => {
+    cancelAnimationFrame(frameId)
+    frameId = 0
+    if (renderer) {
+      renderer.dispose()
+      renderer.forceContextLoss()
+      renderer = null
+    }
+    canvas?.remove()
+    canvas = null
   }
 
   const startLoad = () => {
@@ -114,7 +136,7 @@ function mountThumbnail(card: Element, catalogModel: PublicModel) {
       })
       scene.add(previewModel)
       frameModel(previewModel)
-      resize()
+      if (active) render()
     }, undefined, () => {
       if (!disposed) host.classList.add('live-model-thumbnail-error')
     })
@@ -124,15 +146,22 @@ function mountThumbnail(card: Element, catalogModel: PublicModel) {
   resizeObserver.observe(host)
   const visibilityObserver = new IntersectionObserver(([entry]) => {
     active = entry.isIntersecting
-    if (active) startLoad()
-  }, { rootMargin: '80px' })
+    if (active) {
+      host.classList.remove('live-model-thumbnail-error')
+      createRenderer()
+      startLoad()
+      render()
+    } else {
+      disposeRenderer()
+    }
+  }, { rootMargin: '120px 0px', threshold: 0.01 })
   visibilityObserver.observe(host)
-  resize()
+
   const dispose = () => {
     disposed = true
-    cancelAnimationFrame(frameId)
     resizeObserver.disconnect()
     visibilityObserver.disconnect()
+    disposeRenderer()
     if (previewModel) {
       previewModel.traverse((object) => {
         if (object instanceof THREE.Mesh) {
@@ -142,11 +171,10 @@ function mountThumbnail(card: Element, catalogModel: PublicModel) {
         }
       })
       scene.remove(previewModel)
+      previewModel = null
     }
-    renderer.dispose()
   }
   window.addEventListener('pagehide', dispose, { once: true })
-  render()
 }
 
 function mountLivePreviews() {

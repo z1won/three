@@ -42,6 +42,11 @@ function mountThumbnail(card: Element, catalogModel: PublicModel) {
   const host = document.createElement('div')
   host.className = 'live-model-thumbnail'
   host.setAttribute('aria-hidden', 'true')
+
+  const label = document.createElement('div')
+  label.className = 'live-model-thumbnail-label'
+  label.textContent = catalogModel.name
+  host.appendChild(label)
   card.prepend(host)
 
   let renderer: THREE.WebGLRenderer | null = null

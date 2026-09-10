@@ -26,37 +26,6 @@ jobs:
         with:
           node-version: 22
 
-      - name: Integrate transform keyframe timeline
-        shell: bash
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          import re
-          p=Path('src/App.tsx')
-          s=p.read_text()
-          if "./KeyframeTimeline" not in s:
-              s=s.replace("import { publicModels } from './modelCatalog'", "import { publicModels } from './modelCatalog'\nimport KeyframeTimeline from './KeyframeTimeline'")
-          if '<KeyframeTimeline selected={selected} />' not in s:
-              s,n=re.subn(r'(<AnimationController\b[\s\S]*?/>)', r'\1\n            <KeyframeTimeline selected={selected} />', s, count=1)
-              if n != 1:
-                  raise SystemExit('AnimationController JSX invocation not found')
-          p.write_text(s)
-          css=Path('src/styles.css')
-          c=css.read_text()
-          marker='/* transform keyframe timeline */'
-          if marker not in c:
-              c += '''\n\n/* transform keyframe timeline */\n.keyframe-timeline{margin-top:10px}.keyframe-timeline.muted{padding:12px;color:var(--muted,#8b93a7);font-size:12px}.panel-section-title{display:flex;justify-content:space-between;gap:12px;align-items:center}.keyframe-toolbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0}.keyframe-toolbar label{display:flex;gap:5px;align-items:center;font-size:12px}.timeline-range{width:100%}.keyframe-track{position:relative;height:28px;margin:5px 0 8px;border-radius:6px;background:var(--panel-2,#171a22);border:1px solid var(--border,#2b3040);touch-action:none;cursor:ew-resize}.keyframe-marker{position:absolute;top:4px;transform:translateX(-50%);border:0;background:transparent;padding:0;color:#f59e0b;cursor:pointer;font-size:14px}.timeline-cursor{position:absolute;top:0;bottom:0;width:2px;background:#fff;pointer-events:none;transform:translateX(-1px)}.keyframe-meta{font-size:11px;color:var(--muted,#8b93a7)}\n'''
-              css.write_text(c)
-          PY
-          rm -f .github/workflows/add-keyframe-timeline.yml
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add src/App.tsx src/styles.css .github/workflows/add-keyframe-timeline.yml
-          if ! git diff --cached --quiet; then
-            git commit -m 'feat: integrate transform keyframe timeline'
-            git push origin main
-          fi
-
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 

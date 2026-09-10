@@ -1,3 +1,7 @@
+import * as THREE from 'three'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import './modelThumbnails.css'
+
 export type PublicModel = {
   name: string
   format: 'GLB' | 'GLTF'
@@ -55,3 +59,129 @@ export const publicModels: PublicModel[] = [
     description: 'Metallic material sample',
   },
 ]
+
+function mountThumbnail(card: Element, model: PublicModel) {
+  if (card.querySelector('.live-model-thumbnail')) return
+
+  const host = document.createElement('div')
+  host.className = 'live-model-thumbnail'
+  host.setAttribute('aria-hidden', 'true')
+  card.prepend(host)
+
+  const canvas = document.createElement('canvas')
+  host.appendChild(canvas)
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' })
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
+  renderer.outputColorSpace = THREE.SRGBColorSpace
+  renderer.toneMapping = THREE.ACESFilmicToneMapping
+  renderer.toneMappingExposure = 1.05
+
+  const scene = new THREE.Scene()
+  const camera = new THREE.PerspectiveCamera(32, 1, 0.01, 1000)
+  camera.position.set(3, 1.8, 4)
+
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x182033, 2.2))
+  const key = new THREE.DirectionalLight(0xffffff, 3.2)
+  key.position.set(4, 6, 5)
+  scene.add(key)
+  const rim = new THREE.DirectionalLight(0x8eb6ff, 1.4)
+  rim.position.set(-4, 2, -4)
+  scene.add(rim)
+
+  let model: THREE.Object3D | null = null
+  let frameId = 0
+  let active = false
+  let disposed = false
+
+  const resize = () => {
+    const width = Math.max(host.clientWidth, 1)
+    const height = Math.max(host.clientHeight, 1)
+    renderer.setSize(width, height, false)
+    camera.aspect = width / height
+    camera.updateProjectionMatrix()
+  }
+
+  const frameModel = (root: THREE.Object3D) => {
+    const box = new THREE.Box3().setFromObject(root)
+    const size = box.getSize(new THREE.Vector3())
+    const center = box.getCenter(new THREE.Vector3())
+    const maxSize = Math.max(size.x, size.y, size.z, 0.001)
+    const distance = (maxSize / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)))) * 1.35
+    camera.position.set(distance * 0.72, distance * 0.45, distance)
+    camera.near = Math.max(maxSize / 100, 0.001)
+    camera.far = maxSize * 100
+    camera.lookAt(center)
+    camera.updateProjectionMatrix()
+  }
+
+  const render = () => {
+    if (disposed) return
+    if (active) {
+      if (model) {
+        model.rotation.y += 0.004
+        renderer.render(scene, camera)
+      } else {
+        renderer.clear()
+      }
+    }
+    frameId = requestAnimationFrame(render)
+  }
+
+  const loader = new GLTFLoader()
+  loader.load(model.url, (gltf) => {
+    if (disposed) return
+    model = gltf.scene
+    model.traverse((object) => {
+      if (object instanceof THREE.Mesh) {
+        object.castShadow = true
+        object.receiveShadow = true
+      }
+    })
+    scene.add(model)
+    frameModel(model)
+    resize()
+  }, undefined, () => {
+    if (!disposed) host.classList.add('live-model-thumbnail-error')
+  })
+
+  const resizeObserver = new ResizeObserver(resize)
+  resizeObserver.observe(host)
+  const visibilityObserver = new IntersectionObserver(([entry]) => {
+    active = entry.isIntersecting
+  }, { rootMargin: '160px' })
+  visibilityObserver.observe(host)
+  const dispose = () => {
+    disposed = true
+    cancelAnimationFrame(frameId)
+    resizeObserver.disconnect()
+    visibilityObserver.disconnect()
+    if (model) {
+      model.traverse((object) => {
+        if (object instanceof THREE.Mesh) {
+          object.geometry.dispose()
+          const materials = Array.isArray(object.material) ? object.material : [object.material]
+          materials.forEach((material) => material.dispose())
+        }
+      })
+      scene.remove(model)
+    }
+    renderer.dispose()
+  }
+  window.addEventListener('pagehide', dispose, { once: true })
+  render()
+}
+
+function mountLivePreviews() {
+  document.querySelectorAll('.public-model').forEach((card) => {
+    const text = card.textContent ?? ''
+    const model = publicModels.find((candidate) => text.includes(candidate.name))
+    if (model) mountThumbnail(card, model)
+  })
+}
+
+if (typeof window !== 'undefined') {
+  const observer = new MutationObserver(() => mountLivePreviews())
+  window.addEventListener('load', mountLivePreviews, { once: true })
+  observer.observe(document.body, { childList: true, subtree: true })
+  queueMicrotask(mountLivePreviews)
+}

@@ -25,6 +25,7 @@ jobs:
           if s.count(old)!=1: raise SystemExit('animation UI not found')
           s=s.replace(old,new)
           s=s.replace('<AnimationController scene={modelScene} clips={animationClips} index={animationIndex} playing={animationPlaying}/>','<AnimationController scene={modelScene} clips={animationClips} index={animationIndex} playing={animationPlaying} speed={animationSpeed} seekTime={animationSeekTime} onTime={reportAnimationTime}/>')
+          s=s.replace("controls.update()","(controls as any).update()")
           p.write_text(s)
           PY
           npm install --legacy-peer-deps

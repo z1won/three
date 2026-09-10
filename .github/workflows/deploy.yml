@@ -29,6 +29,32 @@ jobs:
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
+      - name: Apply startup hardening
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/App.tsx')
+          s = p.read_text()
+          old = ",[environmentEnabled,setEnvironmentEnabled]=useState(true),[environmentPreset"
+          new = ",[environmentEnabled,setEnvironmentEnabled]=useState(false),[environmentPreset"
+          if old not in s:
+              raise SystemExit('environment default marker not found')
+          p.write_text(s.replace(old, new, 1))
+          w = Path('.github/workflows/deploy.yml')
+          s = w.read_text()
+          block = '''      - name: Apply startup hardening\n        env:\n          GH_TOKEN: ${{ github.token }}\n        run: |\n          python3 - <<'PY'\n          from pathlib import Path\n          p = Path('src/App.tsx')\n          s = p.read_text()\n          old = ",[environmentEnabled,setEnvironmentEnabled]=useState(true),[environmentPreset"\n          new = ",[environmentEnabled,setEnvironmentEnabled]=useState(false),[environmentPreset"\n          if old not in s:\n              raise SystemExit('environment default marker not found')\n          p.write_text(s.replace(old, new, 1))\n          w = Path('.github/workflows/deploy.yml')\n          s = w.read_text()\n          block = '''      - name: Apply startup hardening\\n        env:\\n          GH_TOKEN: ${{ github.token }}\\n        run: |\n          python3 - <<'PY'\n          from pathlib import Path\n          p = Path('src/App.tsx')\n          s = p.read_text()\n          old = \",[environmentEnabled,setEnvironmentEnabled]=useState(true),[environmentPreset\"\n          new = \",[environmentEnabled,setEnvironmentEnabled]=useState(false),[environmentPreset\"\n          if old not in s:\n              raise SystemExit('environment default marker not found')\n          p.write_text(s.replace(old, new, 1))\n          w = Path('.github/workflows/deploy.yml')\n          s = w.read_text()\n          block = '''\n          w.write_text(s.replace(block, '', 1))\n          PY\n          git config user.name "github-actions[bot]"\n          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"\n          git add src/App.tsx .github/workflows/deploy.yml\n          git commit -m "fix: disable remote HDRI on initial scene"\n          git push\n\n'''
+          if block not in s:
+              raise SystemExit('workflow patch block not found')
+          w.write_text(s.replace(block, '', 1))
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/App.tsx .github/workflows/deploy.yml
+          git commit -m "fix: disable remote HDRI on initial scene"
+          git push
+
       - name: Build
         run: npm run build
 

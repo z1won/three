@@ -30,7 +30,6 @@ export const publicModels: PublicModel[] = [
   { name: 'BoomBox with Axes', format: 'GLTF', url: `${sampleAssets}BoomBoxWithAxes/glTF/BoomBoxWithAxes.gltf`, description: 'X / Y / Z orientation reference' },
   { name: 'Cameras', format: 'GLTF', url: `${sampleAssets}Cameras/glTF/Cameras.gltf`, description: 'Scene containing multiple cameras' },
   { name: 'Cesium Milk Truck', format: 'GLB', url: `${sampleAssets}CesiumMilkTruck/glTF-Binary/CesiumMilkTruck.glb`, description: 'Detailed vehicle with PBR materials' },
-  { name: 'Gearbox Assembly', format: 'GLB', url: `${sampleAssets}GearboxAssy/glTF-Binary/GearboxAssy.glb`, description: 'Mechanical assembly sample' },
   { name: 'Toy Car', format: 'GLB', url: `${sampleAssets}ToyCar/glTF-Binary/ToyCar.glb`, description: 'Stylized vehicle model' },
 ]
 

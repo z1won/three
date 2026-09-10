@@ -29,3 +29,4 @@ export default function KeyframeTimeline({selected}:Props){
   <div className="keyframe-meta">Position · Rotation · Scale · Linear interpolation</div>
  </section>
 }
+// timeline integration trigger

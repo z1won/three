@@ -22,7 +22,6 @@ export const publicModels: PublicModel[] = [
   { name: 'Antique Camera', format: 'GLB', url: `${sampleAssets}AntiqueCamera/glTF-Binary/AntiqueCamera.glb`, description: 'Vintage camera on a tripod' },
   { name: 'Barramundi Fish', format: 'GLB', url: `${sampleAssets}BarramundiFish/glTF-Binary/BarramundiFish.glb`, description: 'Organic character-style asset' },
   { name: 'BrainStem', format: 'GLB', url: `${sampleAssets}BrainStem/glTF-Binary/BrainStem.glb`, description: 'Skinned animated character' },
-  { name: 'Box', format: 'GLB', url: `${sampleAssets}Box/glTF-Binary/Box.glb`, description: 'Minimal one-mesh starter asset' },
   { name: 'Box Animated', format: 'GLB', url: `${sampleAssets}BoxAnimated/glTF-Binary/BoxAnimated.glb`, description: 'Rotation and translation animation' },
   { name: 'Box Textured', format: 'GLB', url: `${sampleAssets}BoxTextured/glTF-Binary/BoxTextured.glb`, description: 'Simple textured PBR box' },
   { name: 'Box Vertex Colors', format: 'GLB', url: `${sampleAssets}BoxVertexColors/glTF-Binary/BoxVertexColors.glb`, description: 'Vertex color attribute sample' },

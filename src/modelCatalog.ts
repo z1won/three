@@ -57,7 +57,9 @@ function mountThumbnail(card: Element, catalogModel: PublicModel) {
   scene.add(rim)
 
   let previewModel: THREE.Object3D | null = null
+  let animationMixer: THREE.AnimationMixer | null = null
   let frameId = 0
+  let lastFrameTime = 0
   let active = false
   let disposed = false
   let loadStarted = false
@@ -84,10 +86,13 @@ function mountThumbnail(card: Element, catalogModel: PublicModel) {
     camera.updateProjectionMatrix()
   }
 
-  const render = () => {
+  const render = (time = performance.now()) => {
     if (disposed || !active || !renderer) return
+    const delta = lastFrameTime ? Math.min((time - lastFrameTime) / 1000, 0.05) : 0
+    lastFrameTime = time
     if (previewModel) {
-      previewModel.rotation.y += 0.004
+      if (animationMixer) animationMixer.update(delta)
+      else previewModel.rotation.y += delta * 0.24
       renderer.render(scene, camera)
     }
     frameId = requestAnimationFrame(render)
@@ -112,6 +117,7 @@ function mountThumbnail(card: Element, catalogModel: PublicModel) {
   const disposeRenderer = () => {
     cancelAnimationFrame(frameId)
     frameId = 0
+    lastFrameTime = 0
     if (renderer) {
       renderer.dispose()
       renderer.forceContextLoss()
@@ -135,6 +141,10 @@ function mountThumbnail(card: Element, catalogModel: PublicModel) {
         }
       })
       scene.add(previewModel)
+      if (gltf.animations.length) {
+        animationMixer = new THREE.AnimationMixer(previewModel)
+        animationMixer.clipAction(gltf.animations[0]).play()
+      }
       frameModel(previewModel)
       if (active) render()
     }, undefined, () => {
@@ -162,6 +172,8 @@ function mountThumbnail(card: Element, catalogModel: PublicModel) {
     resizeObserver.disconnect()
     visibilityObserver.disconnect()
     disposeRenderer()
+    animationMixer?.stopAllAction()
+    animationMixer = null
     if (previewModel) {
       previewModel.traverse((object) => {
         if (object instanceof THREE.Mesh) {

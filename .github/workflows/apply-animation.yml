@@ -10,7 +10,6 @@ permissions:
 
 jobs:
   patch:
-    if: ${{ !contains(github.event.head_commit.message, 'feat: add animation timeline and speed controls') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,7 +19,9 @@ jobs:
           from pathlib import Path
           import re
           p=Path('src/App.tsx'); s=p.read_text()
-          if 'animationSpeed' in s: raise SystemExit('already patched')
+          if 'animationSpeed' in s:
+              print('already patched')
+              raise SystemExit(0)
           s=re.sub(r'function AnimationController\(\{scene,clips,index,playing\}:.*?\n\}', '''function AnimationController({scene,clips,index,playing,speed,seekTime,onTime}:{scene:THREE.Object3D|null;clips:THREE.AnimationClip[];index:number;playing:boolean;speed:number;seekTime:number|null;onTime:(time:number)=>void}){
  const mixer=useRef<THREE.AnimationMixer|null>(null),action=useRef<THREE.AnimationAction|null>(null),lastReported=useRef(-1)
  useEffect(()=>{if(!scene||!clips.length){mixer.current=null;action.current=null;return};const m=new THREE.AnimationMixer(scene);mixer.current=m;const a=m.clipAction(clips[index]??clips[0]);a.reset().setLoop(THREE.LoopRepeat,Infinity);a.timeScale=speed;if(playing)a.play();action.current=a;lastReported.current=-1;return()=>{m.stopAllAction();m.uncacheRoot(scene);mixer.current=null;action.current=null}},[scene,clips,index])
@@ -46,5 +47,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src/App.tsx
+          if git diff --cached --quiet; then echo "No source changes"; exit 0; fi
           git commit -m "feat: add animation timeline and speed controls"
           git push

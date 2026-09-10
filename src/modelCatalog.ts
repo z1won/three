@@ -9,15 +9,31 @@ export type PublicModel = {
   description: string
 }
 
+const sampleAssets = 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/'
+
 export const publicModels: PublicModel[] = [
-  { name: 'Damaged Helmet', format: 'GLB', url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/DamagedHelmet/glTF-Binary/DamagedHelmet.glb', description: 'PBR material / texture sample' },
-  { name: 'Flight Helmet', format: 'GLB', url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/FlightHelmet/glTF-Binary/FlightHelmet.glb', description: 'Detailed hard-surface model' },
-  { name: 'Cesium Man', format: 'GLB', url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/CesiumMan/glTF-Binary/CesiumMan.glb', description: 'Animated character sample' },
-  { name: 'Fox', format: 'GLB', url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Fox/glTF-Binary/Fox.glb', description: 'Character with animation clips' },
-  { name: 'BoomBox', format: 'GLB', url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/BoomBox/glTF-Binary/BoomBox.glb', description: 'PBR / normal-map sample' },
-  { name: 'Duck', format: 'GLTF', url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Duck/glTF/Duck.gltf', description: 'GLTF with external resources' },
-  { name: 'Avocado', format: 'GLTF', url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Avocado/glTF/Avocado.gltf', description: 'Compact PBR asset' },
-  { name: 'Lantern', format: 'GLTF', url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Lantern/glTF/Lantern.gltf', description: 'Metallic material sample' },
+  { name: 'Damaged Helmet', format: 'GLB', url: `${sampleAssets}DamagedHelmet/glTF-Binary/DamagedHelmet.glb`, description: 'PBR material / texture sample' },
+  { name: 'Flight Helmet', format: 'GLB', url: `${sampleAssets}FlightHelmet/glTF-Binary/FlightHelmet.glb`, description: 'Detailed hard-surface model' },
+  { name: 'Cesium Man', format: 'GLB', url: `${sampleAssets}CesiumMan/glTF-Binary/CesiumMan.glb`, description: 'Animated character sample' },
+  { name: 'Fox', format: 'GLB', url: `${sampleAssets}Fox/glTF-Binary/Fox.glb`, description: 'Character with animation clips' },
+  { name: 'BoomBox', format: 'GLB', url: `${sampleAssets}BoomBox/glTF-Binary/BoomBox.glb`, description: 'PBR / normal-map sample' },
+  { name: 'Duck', format: 'GLTF', url: `${sampleAssets}Duck/glTF/Duck.gltf`, description: 'GLTF with external resources' },
+  { name: 'Avocado', format: 'GLTF', url: `${sampleAssets}Avocado/glTF/Avocado.gltf`, description: 'Compact PBR asset' },
+  { name: 'Lantern', format: 'GLTF', url: `${sampleAssets}Lantern/glTF/Lantern.gltf`, description: 'Metallic material sample' },
+  { name: 'Antique Camera', format: 'GLB', url: `${sampleAssets}AntiqueCamera/glTF-Binary/AntiqueCamera.glb`, description: 'Vintage camera on a tripod' },
+  { name: 'Barramundi Fish', format: 'GLB', url: `${sampleAssets}BarramundiFish/glTF-Binary/BarramundiFish.glb`, description: 'Organic character-style asset' },
+  { name: 'BrainStem', format: 'GLB', url: `${sampleAssets}BrainStem/glTF-Binary/BrainStem.glb`, description: 'Skinned animated character' },
+  { name: 'Box', format: 'GLB', url: `${sampleAssets}Box/glTF-Binary/Box.glb`, description: 'Minimal one-mesh starter asset' },
+  { name: 'Box Animated', format: 'GLB', url: `${sampleAssets}BoxAnimated/glTF-Binary/BoxAnimated.glb`, description: 'Rotation and translation animation' },
+  { name: 'Box Textured', format: 'GLB', url: `${sampleAssets}BoxTextured/glTF-Binary/BoxTextured.glb`, description: 'Simple textured PBR box' },
+  { name: 'Box Vertex Colors', format: 'GLB', url: `${sampleAssets}BoxVertexColors/glTF-Binary/BoxVertexColors.glb`, description: 'Vertex color attribute sample' },
+  { name: 'Animated Cube', format: 'GLTF', url: `${sampleAssets}AnimatedCube/glTF/AnimatedCube.gltf`, description: 'Simple linear rotation animation' },
+  { name: 'Animated Triangle', format: 'GLTF', url: `${sampleAssets}AnimatedTriangle/glTF/AnimatedTriangle.gltf`, description: 'Minimal animated transform sample' },
+  { name: 'BoomBox with Axes', format: 'GLTF', url: `${sampleAssets}BoomBoxWithAxes/glTF/BoomBoxWithAxes.gltf`, description: 'X / Y / Z orientation reference' },
+  { name: 'Cameras', format: 'GLTF', url: `${sampleAssets}Cameras/glTF/Cameras.gltf`, description: 'Scene containing multiple cameras' },
+  { name: 'Cesium Milk Truck', format: 'GLB', url: `${sampleAssets}CesiumMilkTruck/glTF-Binary/CesiumMilkTruck.glb`, description: 'Detailed vehicle with PBR materials' },
+  { name: 'Gearbox Assembly', format: 'GLB', url: `${sampleAssets}GearboxAssy/glTF-Binary/GearboxAssy.glb`, description: 'Mechanical assembly sample' },
+  { name: 'Toy Car', format: 'GLB', url: `${sampleAssets}ToyCar/glTF-Binary/ToyCar.glb`, description: 'Stylized vehicle model' },
 ]
 
 function mountThumbnail(card: Element, catalogModel: PublicModel) {

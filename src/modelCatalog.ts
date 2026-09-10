@@ -20,7 +20,7 @@ export const publicModels: PublicModel[] = [
   { name: 'Lantern', format: 'GLTF', url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Lantern/glTF/Lantern.gltf', description: 'Metallic material sample' },
 ]
 
-function mountThumbnail(card: Element, model: PublicModel) {
+function mountThumbnail(card: Element, catalogModel: PublicModel) {
   if (card.querySelector('.live-model-thumbnail')) return
 
   const host = document.createElement('div')
@@ -47,7 +47,7 @@ function mountThumbnail(card: Element, model: PublicModel) {
   rim.position.set(-4, 2, -4)
   scene.add(rim)
 
-  let model: THREE.Object3D | null = null
+  let previewModel: THREE.Object3D | null = null
   let frameId = 0
   let active = false
   let disposed = false
@@ -76,8 +76,8 @@ function mountThumbnail(card: Element, model: PublicModel) {
 
   const render = () => {
     if (disposed) return
-    if (active && model) {
-      model.rotation.y += 0.004
+    if (active && previewModel) {
+      previewModel.rotation.y += 0.004
       renderer.render(scene, camera)
     }
     frameId = requestAnimationFrame(render)
@@ -87,17 +87,17 @@ function mountThumbnail(card: Element, model: PublicModel) {
     if (loadStarted || disposed) return
     loadStarted = true
     const loader = new GLTFLoader()
-    loader.load(model.url, (gltf) => {
+    loader.load(catalogModel.url, (gltf) => {
       if (disposed) return
-      model = gltf.scene
-      model.traverse((object) => {
+      previewModel = gltf.scene
+      previewModel.traverse((object) => {
         if (object instanceof THREE.Mesh) {
           object.castShadow = true
           object.receiveShadow = true
         }
       })
-      scene.add(model)
-      frameModel(model)
+      scene.add(previewModel)
+      frameModel(previewModel)
       resize()
     }, undefined, () => {
       if (!disposed) host.classList.add('live-model-thumbnail-error')
@@ -117,15 +117,15 @@ function mountThumbnail(card: Element, model: PublicModel) {
     cancelAnimationFrame(frameId)
     resizeObserver.disconnect()
     visibilityObserver.disconnect()
-    if (model) {
-      model.traverse((object) => {
+    if (previewModel) {
+      previewModel.traverse((object) => {
         if (object instanceof THREE.Mesh) {
           object.geometry.dispose()
           const materials = Array.isArray(object.material) ? object.material : [object.material]
           materials.forEach((material) => material.dispose())
         }
       })
-      scene.remove(model)
+      scene.remove(previewModel)
     }
     renderer.dispose()
   }
@@ -136,8 +136,8 @@ function mountThumbnail(card: Element, model: PublicModel) {
 function mountLivePreviews() {
   document.querySelectorAll('.public-model').forEach((card) => {
     const text = card.textContent ?? ''
-    const model = publicModels.find((candidate) => text.includes(candidate.name))
-    if (model) mountThumbnail(card, model)
+    const catalogModel = publicModels.find((candidate) => text.includes(candidate.name))
+    if (catalogModel) mountThumbnail(card, catalogModel)
   })
 }
 

@@ -10,54 +10,14 @@ export type PublicModel = {
 }
 
 export const publicModels: PublicModel[] = [
-  {
-    name: 'Damaged Helmet',
-    format: 'GLB',
-    url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/DamagedHelmet/glTF-Binary/DamagedHelmet.glb',
-    description: 'PBR material / texture sample',
-  },
-  {
-    name: 'Flight Helmet',
-    format: 'GLB',
-    url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/FlightHelmet/glTF-Binary/FlightHelmet.glb',
-    description: 'Detailed hard-surface model',
-  },
-  {
-    name: 'Cesium Man',
-    format: 'GLB',
-    url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/CesiumMan/glTF-Binary/CesiumMan.glb',
-    description: 'Animated character sample',
-  },
-  {
-    name: 'Fox',
-    format: 'GLB',
-    url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Fox/glTF-Binary/Fox.glb',
-    description: 'Character with animation clips',
-  },
-  {
-    name: 'BoomBox',
-    format: 'GLB',
-    url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/BoomBox/glTF-Binary/BoomBox.glb',
-    description: 'PBR / normal-map sample',
-  },
-  {
-    name: 'Duck',
-    format: 'GLTF',
-    url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Duck/glTF/Duck.gltf',
-    description: 'GLTF with external resources',
-  },
-  {
-    name: 'Avocado',
-    format: 'GLTF',
-    url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Avocado/glTF/Avocado.gltf',
-    description: 'Compact PBR asset',
-  },
-  {
-    name: 'Lantern',
-    format: 'GLTF',
-    url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Lantern/glTF/Lantern.gltf',
-    description: 'Metallic material sample',
-  },
+  { name: 'Damaged Helmet', format: 'GLB', url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/DamagedHelmet/glTF-Binary/DamagedHelmet.glb', description: 'PBR material / texture sample' },
+  { name: 'Flight Helmet', format: 'GLB', url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/FlightHelmet/glTF-Binary/FlightHelmet.glb', description: 'Detailed hard-surface model' },
+  { name: 'Cesium Man', format: 'GLB', url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/CesiumMan/glTF-Binary/CesiumMan.glb', description: 'Animated character sample' },
+  { name: 'Fox', format: 'GLB', url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Fox/glTF-Binary/Fox.glb', description: 'Character with animation clips' },
+  { name: 'BoomBox', format: 'GLB', url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/BoomBox/glTF-Binary/BoomBox.glb', description: 'PBR / normal-map sample' },
+  { name: 'Duck', format: 'GLTF', url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Duck/glTF/Duck.gltf', description: 'GLTF with external resources' },
+  { name: 'Avocado', format: 'GLTF', url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Avocado/glTF/Avocado.gltf', description: 'Compact PBR asset' },
+  { name: 'Lantern', format: 'GLTF', url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Lantern/glTF/Lantern.gltf', description: 'Metallic material sample' },
 ]
 
 function mountThumbnail(card: Element, model: PublicModel) {
@@ -79,7 +39,6 @@ function mountThumbnail(card: Element, model: PublicModel) {
   const scene = new THREE.Scene()
   const camera = new THREE.PerspectiveCamera(32, 1, 0.01, 1000)
   camera.position.set(3, 1.8, 4)
-
   scene.add(new THREE.HemisphereLight(0xffffff, 0x182033, 2.2))
   const key = new THREE.DirectionalLight(0xffffff, 3.2)
   key.position.set(4, 6, 5)
@@ -92,6 +51,7 @@ function mountThumbnail(card: Element, model: PublicModel) {
   let frameId = 0
   let active = false
   let disposed = false
+  let loadStarted = false
 
   const resize = () => {
     const width = Math.max(host.clientWidth, 1)
@@ -116,40 +76,42 @@ function mountThumbnail(card: Element, model: PublicModel) {
 
   const render = () => {
     if (disposed) return
-    if (active) {
-      if (model) {
-        model.rotation.y += 0.004
-        renderer.render(scene, camera)
-      } else {
-        renderer.clear()
-      }
+    if (active && model) {
+      model.rotation.y += 0.004
+      renderer.render(scene, camera)
     }
     frameId = requestAnimationFrame(render)
   }
 
-  const loader = new GLTFLoader()
-  loader.load(model.url, (gltf) => {
-    if (disposed) return
-    model = gltf.scene
-    model.traverse((object) => {
-      if (object instanceof THREE.Mesh) {
-        object.castShadow = true
-        object.receiveShadow = true
-      }
+  const startLoad = () => {
+    if (loadStarted || disposed) return
+    loadStarted = true
+    const loader = new GLTFLoader()
+    loader.load(model.url, (gltf) => {
+      if (disposed) return
+      model = gltf.scene
+      model.traverse((object) => {
+        if (object instanceof THREE.Mesh) {
+          object.castShadow = true
+          object.receiveShadow = true
+        }
+      })
+      scene.add(model)
+      frameModel(model)
+      resize()
+    }, undefined, () => {
+      if (!disposed) host.classList.add('live-model-thumbnail-error')
     })
-    scene.add(model)
-    frameModel(model)
-    resize()
-  }, undefined, () => {
-    if (!disposed) host.classList.add('live-model-thumbnail-error')
-  })
+  }
 
   const resizeObserver = new ResizeObserver(resize)
   resizeObserver.observe(host)
   const visibilityObserver = new IntersectionObserver(([entry]) => {
     active = entry.isIntersecting
-  }, { rootMargin: '160px' })
+    if (active) startLoad()
+  }, { rootMargin: '80px' })
   visibilityObserver.observe(host)
+  resize()
   const dispose = () => {
     disposed = true
     cancelAnimationFrame(frameId)
@@ -180,8 +142,11 @@ function mountLivePreviews() {
 }
 
 if (typeof window !== 'undefined') {
-  const observer = new MutationObserver(() => mountLivePreviews())
-  window.addEventListener('load', mountLivePreviews, { once: true })
-  observer.observe(document.body, { childList: true, subtree: true })
-  queueMicrotask(mountLivePreviews)
+  const init = () => {
+    mountLivePreviews()
+    const observer = new MutationObserver(() => mountLivePreviews())
+    observer.observe(document.body, { childList: true, subtree: true })
+  }
+  if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', init, { once: true })
+  else init()
 }

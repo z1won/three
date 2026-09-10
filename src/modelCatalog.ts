@@ -26,9 +26,7 @@ export const publicModels: PublicModel[] = [
   { name: 'Box Textured', format: 'GLB', url: `${sampleAssets}BoxTextured/glTF-Binary/BoxTextured.glb`, description: 'Simple textured PBR box' },
   { name: 'Box Vertex Colors', format: 'GLB', url: `${sampleAssets}BoxVertexColors/glTF-Binary/BoxVertexColors.glb`, description: 'Vertex color attribute sample' },
   { name: 'Animated Cube', format: 'GLTF', url: `${sampleAssets}AnimatedCube/glTF/AnimatedCube.gltf`, description: 'Simple linear rotation animation' },
-  { name: 'Animated Triangle', format: 'GLTF', url: `${sampleAssets}AnimatedTriangle/glTF/AnimatedTriangle.gltf`, description: 'Minimal animated transform sample' },
   { name: 'BoomBox with Axes', format: 'GLTF', url: `${sampleAssets}BoomBoxWithAxes/glTF/BoomBoxWithAxes.gltf`, description: 'X / Y / Z orientation reference' },
-  { name: 'Cameras', format: 'GLTF', url: `${sampleAssets}Cameras/glTF/Cameras.gltf`, description: 'Scene containing multiple cameras' },
   { name: 'Cesium Milk Truck', format: 'GLB', url: `${sampleAssets}CesiumMilkTruck/glTF-Binary/CesiumMilkTruck.glb`, description: 'Detailed vehicle with PBR materials' },
   { name: 'Toy Car', format: 'GLB', url: `${sampleAssets}ToyCar/glTF-Binary/ToyCar.glb`, description: 'Stylized vehicle model' },
 ]
